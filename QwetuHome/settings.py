@@ -113,3 +113,10 @@ STATICFILES_DIR=[
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# M-Pesa Configuration
+MPESA_CONSUMER_KEY=748494994
+MPESA_CONSUMER_SECRET=9408440494884
+MPESA_SHORTCODE=49484904
+MPESA_PASSKEY=8490484
+MPESA_CALLBACK_URL=https://yourdomain.com/api/mpesa/callback/
