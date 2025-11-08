@@ -1,0 +1,491 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Admin Dashboard - RentManager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: white;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+        height: 100%;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+
+    .stats-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .stats-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        color: #2c3e50;
+    }
+
+    .stats-label {
+        font-size: 0.9rem;
+        color: #7f8c8d;
+        font-weight: 500;
+    }
+
+    .chart-card {
+        background: white;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #ecf0f1;
+    }
+
+    .chart-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .table-responsive {
+        background: white;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .table thead th {
+        background-color: #f8f9fa;
+        color: #2c3e50;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        padding: 1rem;
+    }
+
+    .table tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+    }
+
+    .badge {
+        padding: 0.5rem 0.75rem;
+        font-weight: 500;
+        font-size: 0.8rem;
+    }
+
+    .bg-blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .bg-green { background: linear-gradient(135deg, #48c774 0%, #3aa367 100%); }
+    .bg-orange { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); }
+    .bg-purple { background: linear-gradient(135deg, #a55eea 0%, #8854d0 100%); }
+    .bg-teal { background: linear-gradient(135deg, #4ecdc4 0%, #44a3a0 100%); }
+    .bg-yellow { background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%); }
+
+    .page-header {
+        margin-bottom: 2rem;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .page-subtitle {
+        color: #7f8c8d;
+        font-size: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .stats-card {
+            margin-bottom: 1rem;
+        }
+
+        .chart-card {
+            padding: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="bi bi-speedometer2 me-2"></i>Dashboard Overview
+    </h1>
+    <p class="page-subtitle">Welcome back, {{ user.get_full_name }}! Here's what's happening with your properties.</p>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="stats-icon bg-blue text-white">
+                <i class="bi bi-building"></i>
+            </div>
+            <div class="stats-value">{{ total_apartments }}</div>
+            <div class="stats-label">Total Apartments</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="stats-icon bg-green text-white">
+                <i class="bi bi-door-open"></i>
+            </div>
+            <div class="stats-value">{{ occupied_rooms }}/{{ total_rooms }}</div>
+            <div class="stats-label">Occupied Rooms</div>
+            <div class="progress mt-2" style="height: 8px;">
+                <div class="progress-bar bg-success" role="progressbar" style="width: {{ occupancy_rate }}%"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="stats-icon bg-purple text-white">
+                <i class="bi bi-people"></i>
+            </div>
+            <div class="stats-value">{{ active_tenancies }}</div>
+            <div class="stats-label">Active Tenants</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="stats-icon bg-orange text-white">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="stats-value">{{ overdue_count }}</div>
+            <div class="stats-label">Overdue Payments</div>
+        </div>
+    </div>
+</div>
+
+<!-- Financial Summary -->
+<div class="row mb-4">
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="stats-icon bg-teal text-white">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="stats-value">KES {{ current_month_payments|floatformat:2 }}</div>
+            <div class="stats-label">Collected This Month</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="stats-card">
+            <div class="stats-icon bg-yellow text-white">
+                <i class="bi bi-calendar-check"></i>
+            </div>
+            <div class="stats-value">KES {{ expected_rent|floatformat:2 }}</div>
+            <div class="stats-label">Expected This Month</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 col-md-12 mb-3">
+        <div class="stats-card">
+            <div class="stats-icon bg-orange text-white">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div class="stats-value">KES {{ outstanding_rent|floatformat:2 }}</div>
+            <div class="stats-label">Outstanding Balance</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="row">
+    <!-- Revenue Trend Line Chart -->
+    <div class="col-lg-8 mb-4">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class="bi bi-graph-up me-2"></i>Revenue Trend (Last 6 Months)
+                </h3>
+            </div>
+            <canvas id="revenueChart" height="80"></canvas>
+        </div>
+    </div>
+    
+    <!-- Payment Status Donut Chart -->
+    <div class="col-lg-4 mb-4">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class="bi bi-pie-chart me-2"></i>Payment Status
+                </h3>
+            </div>
+            <canvas id="paymentStatusChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Apartment Revenue Bar Chart -->
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class="bi bi-bar-chart me-2"></i>Revenue by Apartment (Current Month)
+                </h3>
+            </div>
+            <canvas id="apartmentRevenueChart" height="60"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity Section -->
+<div class="row">
+    <!-- Recent Payments -->
+    <div class="col-lg-6 mb-4">
+        <div class="table-responsive">
+            <h4 class="mb-3">
+                <i class="bi bi-clock-history me-2"></i>Recent Payments
+            </h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Tenant</th>
+                        <th>Room</th>
+                        <th>Amount</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in recent_payments %}
+                    <tr>
+                        <td>{{ payment.tenant.get_full_name }}</td>
+                        <td>{{ payment.tenancy.room.room_number }}</td>
+                        <td><strong>KES {{ payment.amount|floatformat:2 }}</strong></td>
+                        <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No recent payments</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Payment Reports -->
+    <div class="col-lg-6 mb-4">
+        <div class="table-responsive">
+            <h4 class="mb-3">
+                <i class="bi bi-exclamation-circle me-2"></i>Payment Issues
+            </h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Tenant</th>
+                        <th>Room</th>
+                        <th>Amount Due</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for due in payment_reports %}
+                    <tr>
+                        <td>{{ due.tenant.get_full_name }}</td>
+                        <td>{{ due.tenancy.room.room_number }}</td>
+                        <td><strong>KES {{ due.balance|floatformat:2 }}</strong></td>
+                        <td>
+                            <span class="badge bg-danger">{{ due.get_status_display }}</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No payment issues</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+    // Revenue Trend Line Chart
+    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+    const revenueChart = new Chart(revenueCtx, {
+        type: 'line',
+        data: {
+            labels: {{ months_labels|safe }},
+            datasets: [{
+                label: 'Revenue (KES)',
+                data: {{ revenue_data|safe }},
+                borderColor: '#3498db',
+                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                pointBackgroundColor: '#3498db',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14 },
+                    bodyFont: { size: 13 },
+                    callbacks: {
+                        label: function(context) {
+                            return 'KES ' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'KES ' + value.toLocaleString();
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // Payment Status Donut Chart
+    const paymentStatusCtx = document.getElementById('paymentStatusChart').getContext('2d');
+    const paymentStatusChart = new Chart(paymentStatusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Paid', 'Partially Paid', 'Unpaid', 'Overdue'],
+            datasets: [{
+                data: {{ payment_status|safe }},
+                backgroundColor: [
+                    '#48c774',
+                    '#feca57',
+                    '#95a5a6',
+                    '#ff6b6b'
+                ],
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        font: { size: 12 },
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14 },
+                    bodyFont: { size: 13 }
+                }
+            }
+        }
+    });
+
+    // Apartment Revenue Bar Chart
+    const apartmentRevenueCtx = document.getElementById('apartmentRevenueChart').getContext('2d');
+    const apartmentRevenueChart = new Chart(apartmentRevenueCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ apartment_labels|safe }},
+            datasets: [{
+                label: 'Revenue (KES)',
+                data: {{ apartment_revenue|safe }},
+                backgroundColor: 'rgba(52, 152, 219, 0.8)',
+                borderColor: '#3498db',
+                borderWidth: 2,
+                borderRadius: 6,
+                hoverBackgroundColor: 'rgba(41, 128, 185, 0.9)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14 },
+                    bodyFont: { size: 13 },
+                    callbacks: {
+                        label: function(context) {
+                            return 'KES ' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'KES ' + value.toLocaleString();
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
