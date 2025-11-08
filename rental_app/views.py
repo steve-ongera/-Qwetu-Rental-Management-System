@@ -57,11 +57,7 @@ def logout_view(request):
 
 @login_required
 def admin_dashboard(request):
-    """Admin dashboard with analytics"""
-    if request.user.user_type != 'admin':
-        messages.error(request, 'You do not have permission to access this page.')
-        return redirect('tenant_dashboard')
-    
+
     # Get all apartments owned by this admin
     apartments = Apartment.objects.filter(owner=request.user)
     
