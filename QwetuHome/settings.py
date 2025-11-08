@@ -29,6 +29,8 @@ INSTALLED_APPS = [
     'rental_app',
 ]
 
+AUTH_USER_MODEL = 'rental_app.User'
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -119,4 +121,4 @@ MPESA_CONSUMER_KEY=748494994
 MPESA_CONSUMER_SECRET=9408440494884
 MPESA_SHORTCODE=49484904
 MPESA_PASSKEY=8490484
-MPESA_CALLBACK_URL=https://yourdomain.com/api/mpesa/callback/
+#MPESA_CALLBACK_URL=https://yourdomain.com/api/mpesa/callback/

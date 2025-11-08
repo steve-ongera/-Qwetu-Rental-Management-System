@@ -136,8 +136,8 @@ class Tenancy(models.Model):
     move_out_condition = models.TextField(blank=True)
     
     # Room switching tracking
-    switched_to_tenancy = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='switched_from_tenancy')
-    switched_from_tenancy = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='new_tenancy')
+    switched_to_tenancy = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='previous_tenancy')
+    switched_from_tenancy = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='next_tenancy')
     
     # Soft delete - never actually delete tenant data
     is_deleted = models.BooleanField(default=False)
