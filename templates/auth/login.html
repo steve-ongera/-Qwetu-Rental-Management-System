@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - RentManager</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --hover-color: #2980b9;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+            color: white;
+            padding: 2.5rem 2rem;
+            text-align: center;
+        }
+
+        .login-header i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .login-header h2 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .login-body {
+            padding: 2.5rem 2rem;
+        }
+
+        .form-floating {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-floating > .form-control {
+            border: 2px solid #e0e0e0;
+            border-radius: 0.5rem;
+            padding: 1rem 0.75rem;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+        }
+
+        .form-floating > .form-control:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.15);
+        }
+
+        .form-floating > label {
+            padding: 1rem 0.75rem;
+            color: #666;
+        }
+
+        .input-group-text {
+            background: transparent;
+            border: 2px solid #e0e0e0;
+            border-left: none;
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+
+        .password-toggle {
+            cursor: pointer;
+            color: #666;
+            transition: color 0.3s;
+        }
+
+        .password-toggle:hover {
+            color: var(--accent-color);
+        }
+
+        .form-check {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 0.85rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+            border: none;
+            color: white;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(52, 152, 219, 0.3);
+            background: linear-gradient(135deg, #1a252f 0%, var(--hover-color) 100%);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .alert {
+            border-radius: 0.5rem;
+            border: none;
+            margin-bottom: 1.5rem;
+        }
+
+        .alert-dismissible .btn-close {
+            padding: 0.75rem;
+        }
+
+        .login-footer {
+            text-align: center;
+            padding: 1.5rem 2rem;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .login-footer a {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .login-footer a:hover {
+            color: var(--hover-color);
+            text-decoration: underline;
+        }
+
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+            border-width: 0.15em;
+        }
+
+        @media (max-width: 576px) {
+            .login-header {
+                padding: 2rem 1.5rem;
+            }
+
+            .login-body {
+                padding: 2rem 1.5rem;
+            }
+
+            .login-header h2 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="bi bi-buildings"></i>
+                <h2>RentManager</h2>
+                <p>Sign in to your account</p>
+            </div>
+            
+            <div class="login-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            <i class="bi bi-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} me-2"></i>
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="post" id="loginForm">
+                    {% csrf_token %}
+                    
+                    <div class="form-floating mb-3">
+                        <input type="text" class="form-control" id="username" name="username" placeholder="Username" required autofocus>
+                        <label for="username"><i class="bi bi-person me-2"></i>Username</label>
+                    </div>
+                    
+                    <div class="input-group mb-3">
+                        <div class="form-floating flex-grow-1">
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Password" required style="border-right: none;">
+                            <label for="password"><i class="bi bi-lock me-2"></i>Password</label>
+                        </div>
+                        <span class="input-group-text">
+                            <i class="bi bi-eye password-toggle" id="togglePassword"></i>
+                        </span>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="rememberMe" name="remember">
+                        <label class="form-check-label" for="rememberMe">
+                            Remember me
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-login" id="loginBtn">
+                        <span class="login-text">Sign In</span>
+                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    </button>
+                </form>
+            </div>
+            
+            <div class="login-footer">
+                <p class="mb-0">
+                    <a href="#">Forgot password?</a> | 
+                    <a href="#">Contact Support</a>
+                </p>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4 text-white">
+            <small>&copy; 2024 RentManager. All rights reserved.</small>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Password toggle
+        const togglePassword = document.getElementById('togglePassword');
+        const password = document.getElementById('password');
+        
+        togglePassword.addEventListener('click', function() {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            
+            this.classList.toggle('bi-eye');
+            this.classList.toggle('bi-eye-slash');
+        });
+        
+        // Form submission animation
+        const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const loginText = loginBtn.querySelector('.login-text');
+        const spinner = loginBtn.querySelector('.spinner-border');
+        
+        loginForm.addEventListener('submit', function() {
+            loginBtn.disabled = true;
+            loginText.classList.add('d-none');
+            spinner.classList.remove('d-none');
+        });
+    </script>
+</body>
+</html>
