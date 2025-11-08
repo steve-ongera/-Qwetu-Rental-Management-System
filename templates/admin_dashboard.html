@@ -6,48 +6,50 @@
 <style>
     .stats-card {
         background: white;
-        border-radius: 0.75rem;
+        border-radius: 0.5rem;
         padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        transition: all 0.2s ease;
         height: 100%;
+        border: 1px solid #f1f3f4;
     }
 
     .stats-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
     }
 
     .stats-icon {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        border-radius: 0.5rem;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.75rem;
+        font-size: 1.25rem;
         margin-bottom: 1rem;
     }
 
     .stats-value {
-        font-size: 2rem;
+        font-size: 1.75rem;
         font-weight: 700;
         margin-bottom: 0.25rem;
-        color: #2c3e50;
+        color: #1a1d29;
     }
 
     .stats-label {
-        font-size: 0.9rem;
-        color: #7f8c8d;
+        font-size: 0.875rem;
+        color: #64748b;
         font-weight: 500;
     }
 
     .chart-card {
         background: white;
-        border-radius: 0.75rem;
+        border-radius: 0.5rem;
         padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         margin-bottom: 1.5rem;
+        border: 1px solid #f1f3f4;
     }
 
     .chart-header {
@@ -55,63 +57,86 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 2px solid #ecf0f1;
     }
 
     .chart-title {
-        font-size: 1.25rem;
+        font-size: 1.125rem;
         font-weight: 600;
-        color: #2c3e50;
+        color: #1a1d29;
     }
 
     .table-responsive {
         background: white;
-        border-radius: 0.75rem;
+        border-radius: 0.5rem;
         padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid #f1f3f4;
     }
 
     .table thead th {
-        background-color: #f8f9fa;
-        color: #2c3e50;
+        background-color: #f8fafc;
+        color: #1a1d29;
         font-weight: 600;
-        border-bottom: 2px solid #dee2e6;
-        padding: 1rem;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 0.875rem;
+        font-size: 0.875rem;
     }
 
     .table tbody td {
-        padding: 1rem;
+        padding: 0.875rem;
         vertical-align: middle;
+        font-size: 0.875rem;
+        color: #475569;
     }
 
     .badge {
-        padding: 0.5rem 0.75rem;
+        padding: 0.375rem 0.625rem;
         font-weight: 500;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
+        border-radius: 0.25rem;
     }
 
-    .bg-blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-    .bg-green { background: linear-gradient(135deg, #48c774 0%, #3aa367 100%); }
-    .bg-orange { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); }
-    .bg-purple { background: linear-gradient(135deg, #a55eea 0%, #8854d0 100%); }
-    .bg-teal { background: linear-gradient(135deg, #4ecdc4 0%, #44a3a0 100%); }
-    .bg-yellow { background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%); }
+    .bg-blue { background-color: #3b82f6; color: white; }
+    .bg-green { background-color: #10b981; color: white; }
+    .bg-orange { background-color: #f59e0b; color: white; }
+    .bg-purple { background-color: #8b5cf6; color: white; }
+    .bg-teal { background-color: #14b8a6; color: white; }
+    .bg-indigo { background-color: #6366f1; color: white; }
 
     .page-header {
         margin-bottom: 2rem;
     }
 
     .page-title {
-        font-size: 2rem;
+        font-size: 1.75rem;
         font-weight: 700;
-        color: #2c3e50;
+        color: #1a1d29;
         margin-bottom: 0.5rem;
     }
 
     .page-subtitle {
-        color: #7f8c8d;
-        font-size: 1rem;
+        color: #64748b;
+        font-size: 0.95rem;
+    }
+
+    .progress {
+        height: 6px;
+        background-color: #f1f5f9;
+        border-radius: 3px;
+        margin-top: 0.5rem;
+    }
+
+    .progress-bar {
+        border-radius: 3px;
+    }
+
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1a1d29;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #e2e8f0;
     }
 
     @media (max-width: 768px) {
@@ -121,6 +146,10 @@
 
         .chart-card {
             padding: 1rem;
+        }
+        
+        .stats-value {
+            font-size: 1.5rem;
         }
     }
 </style>
@@ -136,9 +165,9 @@
 
 <!-- Statistics Cards -->
 <div class="row mb-4">
-    <div class="col-lg-3 col-md-6 mb-3">
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
         <div class="stats-card">
-            <div class="stats-icon bg-blue text-white">
+            <div class="stats-icon bg-indigo text-white">
                 <i class="bi bi-building"></i>
             </div>
             <div class="stats-value">{{ total_apartments }}</div>
@@ -146,20 +175,20 @@
         </div>
     </div>
     
-    <div class="col-lg-3 col-md-6 mb-3">
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
         <div class="stats-card">
             <div class="stats-icon bg-green text-white">
                 <i class="bi bi-door-open"></i>
             </div>
             <div class="stats-value">{{ occupied_rooms }}/{{ total_rooms }}</div>
             <div class="stats-label">Occupied Rooms</div>
-            <div class="progress mt-2" style="height: 8px;">
+            <div class="progress">
                 <div class="progress-bar bg-success" role="progressbar" style="width: {{ occupancy_rate }}%"></div>
             </div>
         </div>
     </div>
     
-    <div class="col-lg-3 col-md-6 mb-3">
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
         <div class="stats-card">
             <div class="stats-icon bg-purple text-white">
                 <i class="bi bi-people"></i>
@@ -169,7 +198,7 @@
         </div>
     </div>
     
-    <div class="col-lg-3 col-md-6 mb-3">
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
         <div class="stats-card">
             <div class="stats-icon bg-orange text-white">
                 <i class="bi bi-exclamation-triangle"></i>
@@ -182,32 +211,32 @@
 
 <!-- Financial Summary -->
 <div class="row mb-4">
-    <div class="col-lg-4 col-md-6 mb-3">
+    <div class="col-xl-4 col-lg-4 col-md-6 mb-3">
         <div class="stats-card">
             <div class="stats-icon bg-teal text-white">
                 <i class="bi bi-cash-stack"></i>
             </div>
-            <div class="stats-value">KES {{ current_month_payments|floatformat:2 }}</div>
+            <div class="stats-value">KES {{ current_month_payments|floatformat:0 }}</div>
             <div class="stats-label">Collected This Month</div>
         </div>
     </div>
     
-    <div class="col-lg-4 col-md-6 mb-3">
+    <div class="col-xl-4 col-lg-4 col-md-6 mb-3">
         <div class="stats-card">
-            <div class="stats-icon bg-yellow text-white">
+            <div class="stats-icon bg-blue text-white">
                 <i class="bi bi-calendar-check"></i>
             </div>
-            <div class="stats-value">KES {{ expected_rent|floatformat:2 }}</div>
+            <div class="stats-value">KES {{ expected_rent|floatformat:0 }}</div>
             <div class="stats-label">Expected This Month</div>
         </div>
     </div>
     
-    <div class="col-lg-4 col-md-12 mb-3">
+    <div class="col-xl-4 col-lg-4 col-md-12 mb-3">
         <div class="stats-card">
             <div class="stats-icon bg-orange text-white">
                 <i class="bi bi-clock-history"></i>
             </div>
-            <div class="stats-value">KES {{ outstanding_rent|floatformat:2 }}</div>
+            <div class="stats-value">KES {{ outstanding_rent|floatformat:0 }}</div>
             <div class="stats-label">Outstanding Balance</div>
         </div>
     </div>
@@ -223,7 +252,7 @@
                     <i class="bi bi-graph-up me-2"></i>Revenue Trend (Last 6 Months)
                 </h3>
             </div>
-            <canvas id="revenueChart" height="80"></canvas>
+            <canvas id="revenueChart" height="70"></canvas>
         </div>
     </div>
     
@@ -235,7 +264,7 @@
                     <i class="bi bi-pie-chart me-2"></i>Payment Status
                 </h3>
             </div>
-            <canvas id="paymentStatusChart"></canvas>
+            <canvas id="paymentStatusChart" height="250"></canvas>
         </div>
     </div>
 </div>
@@ -249,7 +278,7 @@
                     <i class="bi bi-bar-chart me-2"></i>Revenue by Apartment (Current Month)
                 </h3>
             </div>
-            <canvas id="apartmentRevenueChart" height="60"></canvas>
+            <canvas id="apartmentRevenueChart" height="50"></canvas>
         </div>
     </div>
 </div>
@@ -259,7 +288,7 @@
     <!-- Recent Payments -->
     <div class="col-lg-6 mb-4">
         <div class="table-responsive">
-            <h4 class="mb-3">
+            <h4 class="section-title">
                 <i class="bi bi-clock-history me-2"></i>Recent Payments
             </h4>
             <table class="table">
@@ -276,7 +305,7 @@
                     <tr>
                         <td>{{ payment.tenant.get_full_name }}</td>
                         <td>{{ payment.tenancy.room.room_number }}</td>
-                        <td><strong>KES {{ payment.amount|floatformat:2 }}</strong></td>
+                        <td><strong>KES {{ payment.amount|floatformat:0 }}</strong></td>
                         <td>{{ payment.payment_date|date:"M d, Y" }}</td>
                     </tr>
                     {% empty %}
@@ -292,7 +321,7 @@
     <!-- Payment Reports -->
     <div class="col-lg-6 mb-4">
         <div class="table-responsive">
-            <h4 class="mb-3">
+            <h4 class="section-title">
                 <i class="bi bi-exclamation-circle me-2"></i>Payment Issues
             </h4>
             <table class="table">
@@ -309,7 +338,7 @@
                     <tr>
                         <td>{{ due.tenant.get_full_name }}</td>
                         <td>{{ due.tenancy.room.room_number }}</td>
-                        <td><strong>KES {{ due.balance|floatformat:2 }}</strong></td>
+                        <td><strong>KES {{ due.balance|floatformat:0 }}</strong></td>
                         <td>
                             <span class="badge bg-danger">{{ due.get_status_display }}</span>
                         </td>
@@ -340,14 +369,14 @@
             datasets: [{
                 label: 'Revenue (KES)',
                 data: {{ revenue_data|safe }},
-                borderColor: '#3498db',
-                backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                borderWidth: 3,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.05)',
+                borderWidth: 2,
                 fill: true,
-                tension: 0.4,
-                pointRadius: 6,
-                pointHoverRadius: 8,
-                pointBackgroundColor: '#3498db',
+                tension: 0.3,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#6366f1',
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2
             }]
@@ -361,9 +390,9 @@
                 },
                 tooltip: {
                     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12,
-                    titleFont: { size: 14 },
-                    bodyFont: { size: 13 },
+                    padding: 10,
+                    titleFont: { size: 13 },
+                    bodyFont: { size: 12 },
                     callbacks: {
                         label: function(context) {
                             return 'KES ' + context.parsed.y.toLocaleString();
@@ -377,15 +406,23 @@
                     ticks: {
                         callback: function(value) {
                             return 'KES ' + value.toLocaleString();
+                        },
+                        font: {
+                            size: 11
                         }
                     },
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
+                        color: 'rgba(0, 0, 0, 0.03)'
                     }
                 },
                 x: {
                     grid: {
                         display: false
+                    },
+                    ticks: {
+                        font: {
+                            size: 11
+                        }
                     }
                 }
             }
@@ -401,32 +438,34 @@
             datasets: [{
                 data: {{ payment_status|safe }},
                 backgroundColor: [
-                    '#48c774',
-                    '#feca57',
-                    '#95a5a6',
-                    '#ff6b6b'
+                    '#10b981',
+                    '#f59e0b',
+                    '#94a3b8',
+                    '#ef4444'
                 ],
                 borderWidth: 0,
-                hoverOffset: 10
+                hoverOffset: 8
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
             plugins: {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        padding: 15,
-                        font: { size: 12 },
-                        usePointStyle: true
+                        padding: 12,
+                        font: { size: 11 },
+                        usePointStyle: true,
+                        boxWidth: 6
                     }
                 },
                 tooltip: {
                     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12,
-                    titleFont: { size: 14 },
-                    bodyFont: { size: 13 }
+                    padding: 10,
+                    titleFont: { size: 12 },
+                    bodyFont: { size: 11 }
                 }
             }
         }
@@ -441,11 +480,11 @@
             datasets: [{
                 label: 'Revenue (KES)',
                 data: {{ apartment_revenue|safe }},
-                backgroundColor: 'rgba(52, 152, 219, 0.8)',
-                borderColor: '#3498db',
-                borderWidth: 2,
-                borderRadius: 6,
-                hoverBackgroundColor: 'rgba(41, 128, 185, 0.9)'
+                backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                borderColor: '#6366f1',
+                borderWidth: 1,
+                borderRadius: 4,
+                hoverBackgroundColor: 'rgba(79, 70, 229, 0.8)'
             }]
         },
         options: {
@@ -457,9 +496,9 @@
                 },
                 tooltip: {
                     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12,
-                    titleFont: { size: 14 },
-                    bodyFont: { size: 13 },
+                    padding: 10,
+                    titleFont: { size: 12 },
+                    bodyFont: { size: 11 },
                     callbacks: {
                         label: function(context) {
                             return 'KES ' + context.parsed.y.toLocaleString();
@@ -473,15 +512,23 @@
                     ticks: {
                         callback: function(value) {
                             return 'KES ' + value.toLocaleString();
+                        },
+                        font: {
+                            size: 11
                         }
                     },
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
+                        color: 'rgba(0, 0, 0, 0.03)'
                     }
                 },
                 x: {
                     grid: {
                         display: false
+                    },
+                    ticks: {
+                        font: {
+                            size: 11
+                        }
                     }
                 }
             }

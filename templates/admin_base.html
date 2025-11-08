@@ -9,18 +9,29 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
         :root {
             --sidebar-width: 260px;
-            --header-height: 60px;
-            --primary-color: #2c3e50;
-            --secondary-color: #34495e;
-            --accent-color: #3498db;
-            --hover-color: #2980b9;
-            --bg-light: #f8f9fa;
-            --text-light: #ecf0f1;
-            --border-color: #dee2e6;
+            --header-height: 70px;
+            --primary-color: #1a1d29;
+            --secondary-color: #232834;
+            --accent-color: #6366f1;
+            --accent-hover: #4f46e5;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: #2d3343;
+            --card-bg: #232834;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --bg-gradient: linear-gradient(135deg, #1a1d29 0%, #232834 100%);
+            --sidebar-gradient: linear-gradient(180deg, #1a1d29 0%, #232834 100%);
         }
 
         * {
@@ -30,9 +41,12 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-light);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--primary-color);
+            color: var(--text-primary);
             overflow-x: hidden;
+            line-height: 1.6;
+            font-weight: 400;
         }
 
         /* Header */
@@ -42,13 +56,13 @@
             left: 0;
             right: 0;
             height: var(--header-height);
-            background-color: #fff;
+            background: var(--card-bg);
             border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             padding: 0 1.5rem;
             z-index: 1000;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            backdrop-filter: blur(10px);
         }
 
         .header-left {
@@ -61,34 +75,72 @@
             background: none;
             border: none;
             font-size: 1.5rem;
-            color: var(--primary-color);
+            color: var(--text-primary);
             cursor: pointer;
             padding: 0.5rem;
-            border-radius: 0.25rem;
-            transition: background-color 0.3s;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .menu-toggle:hover {
-            background-color: var(--bg-light);
+            background-color: rgba(255, 255, 255, 0.05);
         }
 
         .brand {
             font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--primary-color);
+            font-weight: 700;
+            color: var(--text-primary);
             text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .brand i {
             color: var(--accent-color);
-            margin-right: 0.5rem;
+            font-size: 1.75rem;
         }
 
         .header-right {
             margin-left: auto;
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 1.5rem;
+        }
+
+        .notification-btn {
+            position: relative;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .notification-btn:hover {
+            color: var(--text-primary);
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: var(--danger-color);
+            color: white;
+            font-size: 0.7rem;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .user-info {
@@ -96,30 +148,44 @@
             align-items: center;
             gap: 0.75rem;
             padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
+            border-radius: 0.75rem;
             cursor: pointer;
             transition: background-color 0.3s;
+            border: 1px solid transparent;
         }
 
         .user-info:hover {
-            background-color: var(--bg-light);
+            background-color: rgba(255, 255, 255, 0.05);
+            border-color: var(--border-color);
         }
 
         .user-avatar {
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--accent-color), var(--hover-color));
+            background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .user-details {
+            display: flex;
+            flex-direction: column;
         }
 
         .user-name {
-            font-weight: 500;
-            color: var(--primary-color);
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .user-role {
+            font-size: 0.75rem;
+            color: var(--text-muted);
         }
 
         /* Sidebar */
@@ -129,12 +195,12 @@
             left: 0;
             bottom: 0;
             width: var(--sidebar-width);
-            background-color: var(--primary-color);
-            color: var(--text-light);
+            background: var(--sidebar-gradient);
+            color: var(--text-primary);
             overflow-y: auto;
             transition: transform 0.3s ease-in-out;
             z-index: 999;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+            border-right: 1px solid var(--border-color);
         }
 
         .sidebar.hidden {
@@ -142,7 +208,7 @@
         }
 
         .sidebar-nav {
-            padding: 1rem 0;
+            padding: 1.5rem 0;
         }
 
         .nav-section {
@@ -150,11 +216,11 @@
         }
 
         .nav-section-title {
-            padding: 0.5rem 1.5rem;
+            padding: 0.5rem 1.5rem 0.5rem;
             font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: #95a5a6;
+            color: var(--text-muted);
             font-weight: 600;
         }
 
@@ -166,32 +232,39 @@
             display: flex;
             align-items: center;
             padding: 0.75rem 1.5rem;
-            color: var(--text-light);
+            color: var(--text-secondary);
             text-decoration: none;
             transition: all 0.3s;
             position: relative;
+            border-left: 3px solid transparent;
         }
 
         .nav-link:hover {
-            background-color: var(--secondary-color);
-            color: #fff;
+            color: var(--text-primary);
+            background-color: rgba(255, 255, 255, 0.03);
         }
 
         .nav-link.active {
-            background-color: var(--accent-color);
-            color: #fff;
-            border-left: 4px solid #fff;
+            color: var(--text-primary);
+            background-color: rgba(99, 102, 241, 0.1);
+            border-left-color: var(--accent-color);
         }
 
         .nav-link i {
             font-size: 1.25rem;
             margin-right: 1rem;
             width: 24px;
+            transition: color 0.3s;
+        }
+
+        .nav-link.active i {
+            color: var(--accent-color);
         }
 
         .nav-link .badge {
             margin-left: auto;
             font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
         }
 
         /* Dropdown */
@@ -204,6 +277,7 @@
             font-family: 'bootstrap-icons';
             margin-left: auto;
             transition: transform 0.3s;
+            font-size: 0.875rem;
         }
 
         .nav-dropdown.open > .nav-link::after {
@@ -212,7 +286,7 @@
 
         .dropdown-menu-custom {
             display: none;
-            background-color: var(--secondary-color);
+            background-color: rgba(0, 0, 0, 0.2);
             padding-left: 0;
         }
 
@@ -223,6 +297,8 @@
         .dropdown-menu-custom .nav-link {
             padding-left: 3.5rem;
             font-size: 0.9rem;
+            padding-top: 0.6rem;
+            padding-bottom: 0.6rem;
         }
 
         /* Main Content */
@@ -232,6 +308,7 @@
             padding: 2rem;
             min-height: calc(100vh - var(--header-height));
             transition: margin-left 0.3s ease-in-out;
+            background: var(--bg-gradient);
         }
 
         .main-content.expanded {
@@ -268,7 +345,7 @@
                 margin-left: 0;
             }
 
-            .user-name {
+            .user-details {
                 display: none;
             }
         }
@@ -283,7 +360,7 @@
             }
 
             .main-content {
-                padding: 1rem;
+                padding: 1.5rem;
             }
         }
 
@@ -297,28 +374,164 @@
         }
 
         .sidebar::-webkit-scrollbar-thumb {
-            background: #7f8c8d;
+            background: var(--border-color);
             border-radius: 3px;
         }
 
         .sidebar::-webkit-scrollbar-thumb:hover {
-            background: #95a5a6;
+            background: var(--text-muted);
         }
 
         /* Content Cards */
         .content-card {
-            background: white;
-            border-radius: 0.5rem;
+            background: var(--card-bg);
+            border-radius: 0.75rem;
             padding: 1.5rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             margin-bottom: 1.5rem;
+            border: 1px solid var(--border-color);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .content-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
 
         .page-title {
             font-size: 1.75rem;
-            font-weight: 600;
-            color: var(--primary-color);
+            font-weight: 700;
+            color: var(--text-primary);
             margin-bottom: 1.5rem;
+        }
+
+        .page-subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .stat-icon.primary {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--accent-color);
+        }
+
+        .stat-icon.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+
+        .stat-icon.warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+        }
+
+        .stat-icon.danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .stat-change {
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+
+        .stat-change.positive {
+            color: var(--success-color);
+        }
+
+        .stat-change.negative {
+            color: var(--danger-color);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            font-weight: 500;
+            padding: 0.5rem 1.25rem;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        /* Dropdown menu */
+        .dropdown-menu {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .dropdown-item {
+            color: var(--text-primary);
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .dropdown-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+        }
+
+        .dropdown-divider {
+            border-color: var(--border-color);
+        }
+
+        /* Animation for page load */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .main-content > * {
+            animation: fadeIn 0.5s ease-out;
         }
     </style>
 
@@ -332,21 +545,22 @@
                 <i class="bi bi-list"></i>
             </button>
             <a href="#" class="brand">
-                <i class="bi bi-buildings"></i>
+                <i class="bi bi-building"></i>
                 RentManager
             </a>
         </div>
         <div class="header-right">
-            <button class="btn btn-link text-decoration-none position-relative" title="Notifications">
-                <i class="bi bi-bell" style="font-size: 1.25rem; color: var(--primary-color);"></i>
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                    3
-                </span>
+            <button class="notification-btn" title="Notifications">
+                <i class="bi bi-bell"></i>
+                <span class="notification-badge">3</span>
             </button>
             <div class="user-info dropdown">
-                <div data-bs-toggle="dropdown" aria-expanded="false">
+                <div data-bs-toggle="dropdown" aria-expanded="false" class="d-flex align-items-center gap-2">
                     <div class="user-avatar">AD</div>
-                    <div class="user-name">Admin User</div>
+                    <div class="user-details">
+                        <div class="user-name">Admin User</div>
+                        <div class="user-role">Administrator</div>
+                    </div>
                 </div>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i> Profile</a></li>
@@ -438,9 +652,117 @@
     <!-- Main Content -->
     <main class="main-content" id="mainContent">
         {% block content %}
-        <h1 class="page-title">Dashboard</h1>
-        <div class="content-card">
-            <p>Welcome to the Admin Dashboard. Select an option from the sidebar to get started.</p>
+        <h1 class="page-title">Dashboard Overview</h1>
+        <p class="page-subtitle">Welcome back, Admin. Here's what's happening with your properties today.</p>
+        
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon primary">
+                    <i class="bi bi-building"></i>
+                </div>
+                <div class="stat-value">24</div>
+                <div class="stat-label">Total Properties</div>
+                <div class="stat-change positive">
+                    <i class="bi bi-arrow-up"></i> 2 new this month
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon success">
+                    <i class="bi bi-people"></i>
+                </div>
+                <div class="stat-value">42</div>
+                <div class="stat-label">Active Tenants</div>
+                <div class="stat-change positive">
+                    <i class="bi bi-arrow-up"></i> 5% from last month
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon warning">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+                <div class="stat-value">$12,480</div>
+                <div class="stat-label">Monthly Revenue</div>
+                <div class="stat-change positive">
+                    <i class="bi bi-arrow-up"></i> 8% from last month
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Pending Issues</div>
+                <div class="stat-change negative">
+                    <i class="bi bi-arrow-down"></i> 1 resolved today
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="content-card">
+                    <h5 class="mb-3">Recent Activity</h5>
+                    <p>Your recent tenant activities and property updates will appear here.</p>
+                    <div class="mt-4">
+                        <div class="d-flex align-items-center mb-3 p-2 border-bottom border-secondary">
+                            <div class="bg-success rounded-circle p-2 me-3">
+                                <i class="bi bi-check-lg text-white"></i>
+                            </div>
+                            <div>
+                                <div class="fw-semibold">Payment Received</div>
+                                <small class="text-muted">John Doe paid rent for Apartment 3B</small>
+                            </div>
+                            <div class="ms-auto text-muted">
+                                <small>2 hours ago</small>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center mb-3 p-2 border-bottom border-secondary">
+                            <div class="bg-primary rounded-circle p-2 me-3">
+                                <i class="bi bi-person-plus text-white"></i>
+                            </div>
+                            <div>
+                                <div class="fw-semibold">New Tenant</div>
+                                <small class="text-muted">Sarah Johnson moved into Room 204</small>
+                            </div>
+                            <div class="ms-auto text-muted">
+                                <small>5 hours ago</small>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center p-2">
+                            <div class="bg-warning rounded-circle p-2 me-3">
+                                <i class="bi bi-tools text-white"></i>
+                            </div>
+                            <div>
+                                <div class="fw-semibold">Maintenance Request</div>
+                                <small class="text-muted">Plumbing issue reported in Apartment 1A</small>
+                            </div>
+                            <div class="ms-auto text-muted">
+                                <small>Yesterday</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="content-card">
+                    <h5 class="mb-3">Quick Actions</h5>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-2"></i> Add New Property
+                        </button>
+                        <button class="btn btn-outline-light">
+                            <i class="bi bi-person-plus me-2"></i> Register Tenant
+                        </button>
+                        <button class="btn btn-outline-light">
+                            <i class="bi bi-receipt me-2"></i> Generate Invoice
+                        </button>
+                        <button class="btn btn-outline-light">
+                            <i class="bi bi-graph-up me-2"></i> View Reports
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
         {% endblock %}
     </main>
