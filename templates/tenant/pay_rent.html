@@ -230,9 +230,7 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Payment method switching
@@ -284,9 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-{% endblock %}
 
-{% block extra_css %}
 <style>
     .payment-method {
         padding: 1rem;
@@ -334,4 +330,167 @@ document.addEventListener('DOMContentLoaded', function() {
         color: var(--text-secondary);
     }
 </style>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Payment method switching
+    const paymentMethods = document.querySelectorAll('.payment-method');
+    const mpesaForm = document.getElementById('mpesaForm');
+    const bankForm = document.getElementById('bankForm');
+    const cashForm = document.getElementById('cashForm');
+    
+    paymentMethods.forEach(method => {
+        method.addEventListener('click', function() {
+            paymentMethods.forEach(m => m.classList.remove('active'));
+            this.classList.add('active');
+            this.querySelector('input[type="radio"]').checked = true;
+            
+            const selectedMethod = this.dataset.method;
+            mpesaForm.style.display = 'none';
+            bankForm.style.display = 'none';
+            cashForm.style.display = 'none';
+            
+            if (selectedMethod === 'mpesa') {
+                mpesaForm.style.display = 'block';
+            } else if (selectedMethod === 'bank') {
+                bankForm.style.display = 'block';
+            } else if (selectedMethod === 'cash') {
+                cashForm.style.display = 'block';
+            }
+        });
+    });
+    
+    // Auto-fill amount based on selected rent due
+    const rentDueSelect = document.getElementById('rentDue');
+    const amountInput = document.getElementById('amount');
+    
+    if (rentDueSelect && amountInput) {
+        rentDueSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const amount = selectedOption.dataset.amount;
+            if (amount) {
+                amountInput.value = amount;
+            }
+        });
+    }
+    
+    // M-Pesa payment submission
+    document.getElementById('paymentForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+        
+        if (paymentMethod === 'mpesa') {
+            handleMpesaPayment();
+        } else {
+            this.submit();
+        }
+    });
+    
+    function handleMpesaPayment() {
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Initiating payment...';
+        
+        const formData = new FormData(document.getElementById('paymentForm'));
+        
+        fetch('{% url "pay_rent" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showPaymentModal(data.checkout_request_id, data.payment_id);
+            } else {
+                alert('Error: ' + data.error);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-send me-2"></i> Process Payment';
+            }
+        })
+        .catch(error => {
+            alert('Error initiating payment');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-send me-2"></i> Process Payment';
+        });
+    }
+    
+    function showPaymentModal(checkoutRequestId, paymentId) {
+        // Create modal
+        const modalHtml = `
+            <div class="modal fade" id="paymentStatusModal" data-bs-backdrop="static" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Processing Payment</h5>
+                        </div>
+                        <div class="modal-body text-center">
+                            <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h6 id="statusMessage">Please enter your M-Pesa PIN on your phone...</h6>
+                            <p class="text-muted small">This may take a few moments</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('paymentStatusModal'));
+        modal.show();
+        
+        // Check payment status every 3 seconds
+        const statusInterval = setInterval(() => {
+            checkPaymentStatus(paymentId, statusInterval, modal);
+        }, 3000);
+        
+        // Timeout after 60 seconds
+        setTimeout(() => {
+            clearInterval(statusInterval);
+            document.getElementById('statusMessage').textContent = 'Payment timeout. Please check your payment history.';
+            setTimeout(() => {
+                modal.hide();
+                location.reload();
+            }, 3000);
+        }, 60000);
+    }
+    
+    function checkPaymentStatus(paymentId, interval, modal) {
+        fetch(`/tenant/check-payment/${paymentId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.status !== 'pending') {
+                clearInterval(interval);
+                
+                if (data.status === 'completed') {
+                    document.getElementById('statusMessage').innerHTML = 
+                        '<i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i><br>' +
+                        '<h5 class="mt-3">Payment Successful!</h5>' +
+                        '<p>Your rent payment has been received.</p>';
+                    
+                    setTimeout(() => {
+                        modal.hide();
+                        location.href = '{% url "tenant_dashboard" %}';
+                    }, 2000);
+                } else {
+                    document.getElementById('statusMessage').innerHTML = 
+                        '<i class="bi bi-x-circle text-danger" style="font-size: 3rem;"></i><br>' +
+                        '<h5 class="mt-3">Payment Failed</h5>' +
+                        '<p>' + data.message + '</p>';
+                    
+                    setTimeout(() => {
+                        modal.hide();
+                        location.reload();
+                    }, 3000);
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

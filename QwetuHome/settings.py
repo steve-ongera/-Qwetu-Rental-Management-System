@@ -1,8 +1,9 @@
 import os
+from dotenv import load_dotenv
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -117,8 +118,19 @@ STATICFILES_DIR=[
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # M-Pesa Configuration
-MPESA_CONSUMER_KEY=748494994
-MPESA_CONSUMER_SECRET=9408440494884
-MPESA_SHORTCODE=49484904
-MPESA_PASSKEY=8490484
-#MPESA_CALLBACK_URL=https://yourdomain.com/api/mpesa/callback/
+MPESA_ENVIRONMENT = os.getenv('MPESA_ENVIRONMENT')
+MPESA_CONSUMER_KEY = os.getenv('MPESA_CONSUMER_KEY')
+MPESA_CONSUMER_SECRET = os.getenv('MPESA_CONSUMER_SECRET')
+MPESA_SHORTCODE = os.getenv('MPESA_SHORTCODE')
+MPESA_PASSKEY = os.getenv('MPESA_PASSKEY')
+MPESA_CALLBACK_URL = os.getenv('MPESA_CALLBACK_URL')
+MPESA_API_URL = os.getenv('MPESA_API_URL')
+
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND')
+EMAIL_HOST = os.getenv('EMAIL_HOST')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+SITE_URL = os.getenv('SITE_URL')

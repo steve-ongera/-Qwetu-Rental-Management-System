@@ -90,7 +90,9 @@ urlpatterns = [
     path('deposit-info/', views.deposit_info, name='deposit_info'),
     
     # Payments
-    path('pay-rent/', views.pay_rent, name='pay_rent'),
+    path('tenant/pay-rent/', views.pay_rent, name='pay_rent'),
+    path('tenant/check-payment/<int:payment_id>/', views.check_payment_status, name='check_payment_status'),
+    path('mpesa/callback/', views.mpesa_callback, name='mpesa_callback'),
     path('rent-due/', views.rent_due, name='rent_due'),
     path('payment-history/', views.payment_history, name='payment_history'),
     path('report-payment-issue/', views.report_payment_issue, name='report_payment_issue'),

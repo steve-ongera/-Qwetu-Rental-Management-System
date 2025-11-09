@@ -2696,6 +2696,23 @@ def deposit_info(request):
 
 # ============= PAYMENTS SECTION =============
 
+# views.py
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from django.db import transaction
+from decimal import Decimal
+import json
+
+from .models import Tenancy, RentDue, RentPayment
+from utils.mpesa import MpesaClient
+from utils.email_utils import send_payment_receipt
+
+
 @login_required
 @tenant_required
 def pay_rent(request):
@@ -2714,7 +2731,6 @@ def pay_rent(request):
     
     # Get unpaid/partially paid rent dues
     today = timezone.now().date()
-    current_month = today.replace(day=1)
     
     unpaid_dues = RentDue.objects.filter(
         tenancy=active_tenancy,
@@ -2723,9 +2739,15 @@ def pay_rent(request):
     ).order_by('due_date')
     
     if request.method == 'POST':
-        # Handle payment submission
-        # This would integrate with M-Pesa STK Push
-        pass
+        payment_method = request.POST.get('payment_method')
+        
+        if payment_method == 'mpesa':
+            return handle_mpesa_payment(request, active_tenancy)
+        elif payment_method == 'bank_transfer':
+            return handle_bank_transfer(request, active_tenancy)
+        elif payment_method == 'cash':
+            messages.info(request, 'Please visit the office to complete your cash payment.')
+            return redirect('tenant_dashboard')
     
     context = {
         'active_tenancy': active_tenancy,
@@ -2733,6 +2755,266 @@ def pay_rent(request):
     }
     
     return render(request, 'tenant/pay_rent.html', context)
+
+
+def handle_mpesa_payment(request, active_tenancy):
+    """Handle M-Pesa STK Push payment"""
+    mpesa_phone = request.POST.get('mpesa_phone', '').strip()
+    rent_due_id = request.POST.get('rent_due')
+    amount = request.POST.get('amount')
+    
+    # Validation
+    if not all([mpesa_phone, rent_due_id, amount]):
+        messages.error(request, 'Please fill in all required fields.')
+        return redirect('pay_rent')
+    
+    try:
+        amount = Decimal(amount)
+        if amount <= 0:
+            messages.error(request, 'Invalid payment amount.')
+            return redirect('pay_rent')
+    except:
+        messages.error(request, 'Invalid payment amount.')
+        return redirect('pay_rent')
+    
+    # Get rent due
+    try:
+        rent_due = RentDue.objects.get(
+            id=rent_due_id,
+            tenancy=active_tenancy,
+            is_deleted=False
+        )
+    except RentDue.DoesNotExist:
+        messages.error(request, 'Invalid rent due selected.')
+        return redirect('pay_rent')
+    
+    # Check if amount exceeds balance
+    if amount > rent_due.balance:
+        messages.error(request, f'Amount cannot exceed balance of ${rent_due.balance}')
+        return redirect('pay_rent')
+    
+    # Create pending payment record
+    payment = RentPayment.objects.create(
+        tenancy=active_tenancy,
+        tenant=request.user,
+        apartment=active_tenancy.apartment,
+        amount=amount,
+        payment_method='mpesa',
+        mpesa_phone_number=mpesa_phone,
+        payment_for_month=rent_due.month_for,
+        status='pending'
+    )
+    
+    # Initiate M-Pesa STK Push
+    mpesa_client = MpesaClient()
+    result = mpesa_client.stk_push(
+        phone_number=mpesa_phone,
+        amount=amount,
+        account_reference=f"RENT-{active_tenancy.room.room_number}",
+        transaction_desc=f"Rent payment for {rent_due.month_for.strftime('%B %Y')}"
+    )
+    
+    if result['success']:
+        # Store checkout request ID for status checking
+        payment.mpesa_transaction_id = result['checkout_request_id']
+        payment.save()
+        
+        # Return JSON response with checkout request ID
+        return JsonResponse({
+            'success': True,
+            'message': 'STK Push sent to your phone. Please enter your M-Pesa PIN.',
+            'checkout_request_id': result['checkout_request_id'],
+            'payment_id': payment.id
+        })
+    else:
+        payment.status = 'failed'
+        payment.notes = result.get('error', 'STK Push failed')
+        payment.save()
+        
+        return JsonResponse({
+            'success': False,
+            'error': result.get('error', 'Payment initiation failed')
+        })
+
+
+@login_required
+@tenant_required
+def check_payment_status(request, payment_id):
+    """Check M-Pesa payment status"""
+    try:
+        payment = RentPayment.objects.get(
+            id=payment_id,
+            tenant=request.user
+        )
+    except RentPayment.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Payment not found'})
+    
+    if payment.status != 'pending':
+        return JsonResponse({
+            'success': True,
+            'status': payment.status,
+            'message': f'Payment is {payment.status}'
+        })
+    
+    # Check with M-Pesa
+    mpesa_client = MpesaClient()
+    result = mpesa_client.check_transaction_status(payment.mpesa_transaction_id)
+    
+    if result['success']:
+        result_code = result.get('result_code')
+        
+        if result_code == '0':
+            # Payment successful
+            with transaction.atomic():
+                payment.status = 'completed'
+                payment.payment_date = timezone.now()
+                payment.save()
+                
+                # Update rent due
+                rent_due = RentDue.objects.get(
+                    tenancy=payment.tenancy,
+                    month_for=payment.payment_for_month
+                )
+                rent_due.amount_paid += payment.amount
+                rent_due.balance = rent_due.amount_due - rent_due.amount_paid
+                
+                if rent_due.balance <= 0:
+                    rent_due.status = 'paid'
+                    rent_due.balance = 0
+                elif rent_due.amount_paid > 0:
+                    rent_due.status = 'partially_paid'
+                
+                rent_due.save()
+                
+                # Send receipt email
+                send_payment_receipt(payment)
+            
+            return JsonResponse({
+                'success': True,
+                'status': 'completed',
+                'message': 'Payment completed successfully!'
+            })
+        elif result_code == '1032':
+            # User cancelled
+            payment.status = 'failed'
+            payment.notes = 'Payment cancelled by user'
+            payment.save()
+            
+            return JsonResponse({
+                'success': True,
+                'status': 'failed',
+                'message': 'Payment was cancelled'
+            })
+        else:
+            # Still pending or other status
+            return JsonResponse({
+                'success': True,
+                'status': 'pending',
+                'message': 'Payment is still processing...'
+            })
+    
+    return JsonResponse({
+        'success': False,
+        'error': 'Could not check payment status'
+    })
+
+
+def handle_bank_transfer(request, active_tenancy):
+    """Handle bank transfer payment recording"""
+    transaction_ref = request.POST.get('transaction_ref', '').strip()
+    rent_due_id = request.POST.get('rent_due')
+    
+    if not transaction_ref:
+        messages.error(request, 'Please provide transaction reference.')
+        return redirect('pay_rent')
+    
+    try:
+        rent_due = RentDue.objects.get(
+            id=rent_due_id,
+            tenancy=active_tenancy
+        )
+    except RentDue.DoesNotExist:
+        messages.error(request, 'Invalid rent due selected.')
+        return redirect('pay_rent')
+    
+    # Create payment record (pending admin verification)
+    payment = RentPayment.objects.create(
+        tenancy=active_tenancy,
+        tenant=request.user,
+        apartment=active_tenancy.apartment,
+        amount=rent_due.balance,
+        payment_method='bank_transfer',
+        payment_for_month=rent_due.month_for,
+        status='pending',
+        notes=f'Bank transfer reference: {transaction_ref}'
+    )
+    
+    messages.success(request, 'Payment details submitted. Admin will verify and confirm.')
+    return redirect('tenant_dashboard')
+
+
+@csrf_exempt
+def mpesa_callback(request):
+    """M-Pesa callback endpoint"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            
+            # Extract callback data
+            body = data.get('Body', {}).get('stkCallback', {})
+            checkout_request_id = body.get('CheckoutRequestID')
+            result_code = body.get('ResultCode')
+            
+            # Find payment
+            try:
+                payment = RentPayment.objects.get(
+                    mpesa_transaction_id=checkout_request_id
+                )
+            except RentPayment.DoesNotExist:
+                return JsonResponse({'ResultCode': 0, 'ResultDesc': 'Success'})
+            
+            if result_code == 0:
+                # Payment successful
+                callback_metadata = body.get('CallbackMetadata', {}).get('Item', [])
+                mpesa_receipt = next(
+                    (item['Value'] for item in callback_metadata if item['Name'] == 'MpesaReceiptNumber'),
+                    None
+                )
+                
+                with transaction.atomic():
+                    payment.status = 'completed'
+                    payment.mpesa_transaction_id = mpesa_receipt
+                    payment.payment_date = timezone.now()
+                    payment.save()
+                    
+                    # Update rent due
+                    rent_due = RentDue.objects.get(
+                        tenancy=payment.tenancy,
+                        month_for=payment.payment_for_month
+                    )
+                    rent_due.amount_paid += payment.amount
+                    rent_due.balance = rent_due.amount_due - rent_due.amount_paid
+                    
+                    if rent_due.balance <= 0:
+                        rent_due.status = 'paid'
+                        rent_due.balance = 0
+                    elif rent_due.amount_paid > 0:
+                        rent_due.status = 'partially_paid'
+                    
+                    rent_due.save()
+                    
+                    # Send receipt
+                    send_payment_receipt(payment)
+            else:
+                # Payment failed
+                payment.status = 'failed'
+                payment.notes = body.get('ResultDesc', 'Payment failed')
+                payment.save()
+            
+        except Exception as e:
+            print(f"Callback error: {str(e)}")
+    
+    return JsonResponse({'ResultCode': 0, 'ResultDesc': 'Success'})
 
 
 @login_required
