@@ -1477,9 +1477,8 @@ from .models import (
 
 
 # ==================== RENT PAYMENTS VIEWS ====================
-
 @login_required
-def rent_payments_list(self, request):
+def rent_payments_list(request):
     """List all rent payments"""
     if request.user.user_type != 'admin':
         messages.error(request, 'Access denied.')
@@ -1549,7 +1548,6 @@ def rent_payments_list(self, request):
     }
     
     return render(request, 'payments/rent_payments_list.html', context)
-
 
 @login_required
 def rent_payments_pending(request):

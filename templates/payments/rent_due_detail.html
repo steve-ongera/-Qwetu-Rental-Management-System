@@ -1,0 +1,516 @@
+{% extends 'admin_base.html' %}
+{% load filters %}
+
+{% block title %}Rent Due Details - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'rent_dues_list' %}">Rent Dues</a></li>
+            <li class="breadcrumb-item active">Due Details</li>
+        </ol>
+    </nav>
+    <div class="d-flex justify-content-between align-items-center">
+        <h1 class="page-title">
+            <i class="bi bi-calendar-check me-2"></i>Rent Due Details
+        </h1>
+        <div class="btn-group">
+            <a href="{% url 'rent_due_edit' due.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil me-2"></i>Edit Due
+            </a>
+            <button type="button" class="btn btn-danger" onclick="deleteDue()">
+                <i class="bi bi-trash me-2"></i>Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Status Alert -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% if due.status == 'paid' %}
+        <div class="alert alert-success d-flex align-items-center">
+            <i class="bi bi-check-circle-fill me-2" style="font-size: 1.5rem;"></i>
+            <div>
+                <strong>Fully Paid</strong>
+                <p class="mb-0">This rent has been completely paid for {{ due.month_for|date:"F Y" }}.</p>
+            </div>
+        </div>
+        {% elif due.status == 'partially_paid' %}
+        <div class="alert alert-info d-flex align-items-center">
+            <i class="bi bi-info-circle-fill me-2" style="font-size: 1.5rem;"></i>
+            <div>
+                <strong>Partially Paid</strong>
+                <p class="mb-0">Partial payment received. Balance remaining: <strong>KES {{ due.balance|floatformat:2 }}</strong></p>
+            </div>
+        </div>
+        {% elif due.status == 'overdue' %}
+        <div class="alert alert-danger d-flex align-items-center">
+            <i class="bi bi-exclamation-triangle-fill me-2" style="font-size: 1.5rem;"></i>
+            <div>
+                <strong>Overdue Payment</strong>
+                <p class="mb-0">This rent is overdue. Due date was {{ due.due_date|date:"F d, Y" }}.</p>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-warning d-flex align-items-center">
+            <i class="bi bi-clock-history me-2" style="font-size: 1.5rem;"></i>
+            <div>
+                <strong>Payment Pending</strong>
+                <p class="mb-0">This rent is due on {{ due.due_date|date:"F d, Y" }}.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if due.reported_to_office %}
+        <div class="alert alert-dark d-flex align-items-center mt-3">
+            <i class="bi bi-flag-fill me-2" style="font-size: 1.5rem;"></i>
+            <div>
+                <strong>Reported to Office</strong>
+                <p class="mb-0">Tenant reported inability to pay on {{ due.report_date|date:"F d, Y H:i A" }}</p>
+                {% if due.report_notes %}
+                <small class="d-block mt-1"><strong>Note:</strong> {{ due.report_notes }}</small>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <!-- Rent Due Information -->
+    <div class="col-md-8">
+        <!-- Payment Summary Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-currency-dollar me-2"></i>Payment Summary
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-4">
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded">
+                            <small class="text-muted d-block">Amount Due</small>
+                            <h3 class="text-primary mb-0">KES {{ due.amount_due|floatformat:2 }}</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded">
+                            <small class="text-muted d-block">Amount Paid</small>
+                            <h3 class="text-success mb-0">KES {{ due.amount_paid|floatformat:2 }}</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 {% if due.balance > 0 %}bg-warning{% else %}bg-success{% endif %} bg-opacity-10 rounded">
+                            <small class="text-muted d-block">Balance</small>
+                            <h3 class="{% if due.balance > 0 %}text-warning{% else %}text-success{% endif %} mb-0">
+                                KES {{ due.balance|floatformat:2 }}
+                            </h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="mb-3">
+                    <label class="form-label text-muted">Payment Progress</label>
+                    <div class="progress" style="height: 25px;">
+                        {% widthratio due.amount_paid due.amount_due 100 as percentage %}
+                        <div class="progress-bar {% if percentage == 100 %}bg-success{% elif percentage > 0 %}bg-info{% else %}bg-warning{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ percentage }}%;" 
+                             aria-valuenow="{{ percentage }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            {{ percentage }}%
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Due Date</label>
+                        <p class="mb-0">
+                            <i class="bi bi-calendar-event me-1"></i>
+                            <strong>{{ due.due_date|date:"F d, Y" }}</strong>
+                        </p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted">Rent For Month</label>
+                        <p class="mb-0">
+                            <i class="bi bi-calendar-month me-1"></i>
+                            <strong>{{ due.month_for|date:"F Y" }}</strong>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Payment Status</label>
+                        <p class="mb-0">
+                            {% if due.status == 'paid' %}
+                            <span class="badge bg-success" style="font-size: 1rem;">
+                                <i class="bi bi-check-circle me-1"></i>Paid
+                            </span>
+                            {% elif due.status == 'partially_paid' %}
+                            <span class="badge bg-info" style="font-size: 1rem;">
+                                <i class="bi bi-hourglass-split me-1"></i>Partially Paid
+                            </span>
+                            {% elif due.status == 'unpaid' %}
+                            <span class="badge bg-warning" style="font-size: 1rem;">
+                                <i class="bi bi-clock me-1"></i>Unpaid
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger" style="font-size: 1rem;">
+                                <i class="bi bi-exclamation-triangle me-1"></i>Overdue
+                            </span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Days Status</label>
+                        <p class="mb-0">
+                            {% now "Y-m-d" as today %}
+                            {% if due.due_date|date:"Y-m-d" > today %}
+                            <span class="text-success">
+                                <i class="bi bi-check-circle me-1"></i>
+                                {{ due.due_date|timeuntil }} until due
+                            </span>
+                            {% elif due.due_date|date:"Y-m-d" == today %}
+                            <span class="text-warning">
+                                <i class="bi bi-exclamation-circle me-1"></i>
+                                Due Today
+                            </span>
+                            {% else %}
+                            <span class="text-danger">
+                                <i class="bi bi-x-circle me-1"></i>
+                                {{ due.due_date|timesince }} overdue
+                            </span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tenant & Tenancy Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-people me-2"></i>Tenant & Tenancy Details
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Tenant Name</label>
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle bg-primary text-white me-2">
+                                {{ due.tenant.first_name.0 }}{{ due.tenant.last_name.0 }}
+                            </div>
+                            <div>
+                                <strong>{{ due.tenant.get_full_name }}</strong>
+                                <br><small class="text-muted">{{ due.tenant.email }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Contact</label>
+                        <p class="mb-0">
+                            <i class="bi bi-phone me-1"></i>{{ due.tenant.phone_number }}
+                        </p>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Apartment</label>
+                        <p class="mb-0"><strong>{{ due.tenancy.apartment.name }}</strong></p>
+                        <small class="text-muted">{{ due.tenancy.apartment.location }}</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Room Number</label>
+                        <p class="mb-0">
+                            <span class="badge bg-primary" style="font-size: 1rem;">
+                                {{ due.tenancy.room.room_number }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Monthly Rent</label>
+                        <p class="mb-0"><strong>KES {{ due.tenancy.room.monthly_rent|floatformat:2 }}</strong></p>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Tenancy Start Date</label>
+                        <p class="mb-0">{{ due.tenancy.start_date|date:"F d, Y" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Tenancy Status</label>
+                        <p class="mb-0">
+                            {% if due.tenancy.status == 'active' %}
+                            <span class="badge bg-success">Active</span>
+                            {% elif due.tenancy.status == 'terminated' %}
+                            <span class="badge bg-secondary">Terminated</span>
+                            {% elif due.tenancy.status == 'suspended' %}
+                            <span class="badge bg-warning">Suspended</span>
+                            {% else %}
+                            <span class="badge bg-info">Switched</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Related Payments -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-receipt-cutoff me-2"></i>Related Payments
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if related_payments %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Transaction ID</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in related_payments %}
+                            <tr>
+                                <td>{{ payment.payment_date|date:"M d, Y H:i" }}</td>
+                                <td><strong>KES {{ payment.amount|floatformat:2 }}</strong></td>
+                                <td>
+                                    {% if payment.payment_method == 'mpesa' %}
+                                    <span class="badge bg-success">M-Pesa</span>
+                                    {% elif payment.payment_method == 'cash' %}
+                                    <span class="badge bg-info">Cash</span>
+                                    {% else %}
+                                    <span class="badge bg-primary">Bank</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if payment.mpesa_transaction_id %}
+                                    <code class="small">{{ payment.mpesa_transaction_id }}</code>
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'rent_payment_detail' payment.mpesa_transaction_id|default:payment.pk %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-active">
+                                <td colspan="1"><strong>Total Paid:</strong></td>
+                                <td colspan="4">
+                                    <strong class="text-success">
+                                        KES {{ related_payments|sum_amount|floatformat:2 }}
+                                    </strong>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-receipt" style="font-size: 3rem; color: #ccc;"></i>
+                    <p class="text-muted mt-2 mb-0">No payments recorded yet for this rent due.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div class="col-md-4">
+        <!-- Quick Actions -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-lightning me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if due.balance > 0 %}
+                    <a href="{% url 'rent_payment_create' %}?tenancy={{ due.tenancy.pk }}&month={{ due.month_for|date:'Y-m' }}" 
+                       class="btn btn-success">
+                        <i class="bi bi-cash-coin me-2"></i>Record Payment
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'rent_due_edit' due.pk %}" class="btn btn-primary">
+                        <i class="bi bi-pencil me-2"></i>Edit Rent Due
+                    </a>
+                    <a href="{% url 'tenant_detail' due.tenant.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-person me-2"></i>View Tenant Profile
+                    </a>
+                    <a href="{% url 'rent_dues_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-2"></i>Back to All Dues
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-clock-history me-2"></i>Timeline
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-primary"></div>
+                        <div class="timeline-content">
+                            <small class="text-muted">Created</small>
+                            <p class="mb-0">{{ due.created_at|date:"M d, Y H:i A" }}</p>
+                        </div>
+                    </div>
+                    {% if due.updated_at != due.created_at %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-info"></div>
+                        <div class="timeline-content">
+                            <small class="text-muted">Last Updated</small>
+                            <p class="mb-0">{{ due.updated_at|date:"M d, Y H:i A" }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if due.status == 'paid' %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-success"></div>
+                        <div class="timeline-content">
+                            <small class="text-muted">Fully Paid</small>
+                            <p class="mb-0">{{ due.updated_at|date:"M d, Y" }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if due.reported_to_office %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-dark"></div>
+                        <div class="timeline-content">
+                            <small class="text-muted">Reported to Office</small>
+                            <p class="mb-0">{{ due.report_date|date:"M d, Y H:i A" }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-graph-up me-2"></i>Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted d-block">Payment Completion</small>
+                    {% widthratio due.amount_paid due.amount_due 100 as completion %}
+                    <h4 class="mb-0">{{ completion }}%</h4>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted d-block">Number of Payments</small>
+                    <h4 class="mb-0">{{ related_payments.count }}</h4>
+                </div>
+                {% if due.balance > 0 %}
+                <div>
+                    <small class="text-muted d-block">Outstanding Balance</small>
+                    <h4 class="mb-0 text-warning">KES {{ due.balance|floatformat:2 }}</h4>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Form -->
+<form method="post" action="{% url 'rent_due_delete' due.pk %}" id="deleteForm">
+    {% csrf_token %}
+</form>
+
+<style>
+.avatar-circle {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -30px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid white;
+}
+
+.timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 12px;
+    bottom: -8px;
+    width: 2px;
+    background-color: #dee2e6;
+}
+
+.timeline-content small {
+    display: block;
+    font-size: 0.75rem;
+}
+</style>
+
+<script>
+function deleteDue() {
+    if (confirm('Are you sure you want to delete this rent due? This action cannot be undone.')) {
+        document.getElementById('deleteForm').submit();
+    }
+}
+</script>
+
+{% endblock %}

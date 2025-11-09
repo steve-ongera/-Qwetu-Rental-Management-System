@@ -606,23 +606,30 @@
                     <li class="nav-dropdown">
                         <a class="nav-link"><i class="bi bi-cash-stack"></i> Rent Payments</a>
                         <ul class="dropdown-menu-custom">
-                            <li><a href="#" class="nav-link">All Payments</a></li>
-                            <li><a href="#" class="nav-link">Pending Payments</a></li>
-                            <li><a href="#" class="nav-link">Payment History</a></li>
+                            <li><a href="{% url 'rent_payments_list' %}" class="nav-link">All Payments</a></li>
+                            <li><a href="{% url 'rent_payments_pending' %}" class="nav-link">Pending Payments</a></li>
+                            <li><a href="{% url 'rent_payment_create' %}" class="nav-link">Record Payment</a></li>
                         </ul>
                     </li>
-                    <li><a href="#" class="nav-link">
+                    <li><a href="{% url 'rent_dues_list' %}" class="nav-link">
                         <i class="bi bi-calendar-check"></i> Rent Dues
-                        <span class="badge bg-danger">5</span>
+                        {% if overdue_dues_count > 0 %}
+                        <span class="badge bg-danger">{{ overdue_dues_count }}</span>
+                        {% endif %}
                     </a></li>
                     <li class="nav-dropdown">
                         <a class="nav-link"><i class="bi bi-receipt"></i> Utility Bills</a>
                         <ul class="dropdown-menu-custom">
-                            <li><a href="#" class="nav-link">Water Bills</a></li>
-                            <li><a href="#" class="nav-link">Electricity Bills</a></li>
+                            <li><a href="{% url 'water_bills_list' %}" class="nav-link">Water Bills</a></li>
+                            <li><a href="{% url 'electricity_bills_list' %}" class="nav-link">Electricity Bills</a></li>
                         </ul>
                     </li>
-                    <li><a href="#" class="nav-link"><i class="bi bi-piggy-bank"></i> Deposits</a></li>
+                    <li><a href="{% url 'deposits_list' %}" class="nav-link">
+                        <i class="bi bi-piggy-bank"></i> Deposits
+                        {% if pending_refunds_count > 0 %}
+                        <span class="badge bg-warning">{{ pending_refunds_count }}</span>
+                        {% endif %}
+                    </a></li>
                 </ul>
             </div>
 
