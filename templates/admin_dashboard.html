@@ -65,6 +65,25 @@
         color: #1a1d29;
     }
 
+    /* FIX: Add explicit height containers for charts */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+
+    .chart-container-small {
+        position: relative;
+        height: 250px;
+        width: 100%;
+    }
+
+    .chart-container-large {
+        position: relative;
+        height: 350px;
+        width: 100%;
+    }
+
     .table-responsive {
         background: white;
         border-radius: 0.5rem;
@@ -77,65 +96,6 @@
         background-color: #f8fafc;
         color: #1a1d29;
         font-weight: 600;
-        border-bottom: 1px solid #e2e8f0;
-        padding: 0.875rem;
-        font-size: 0.875rem;
-    }
-
-    .table tbody td {
-        padding: 0.875rem;
-        vertical-align: middle;
-        font-size: 0.875rem;
-        color: #475569;
-    }
-
-    .badge {
-        padding: 0.375rem 0.625rem;
-        font-weight: 500;
-        font-size: 0.75rem;
-        border-radius: 0.25rem;
-    }
-
-    .bg-blue { background-color: #3b82f6; color: white; }
-    .bg-green { background-color: #10b981; color: white; }
-    .bg-orange { background-color: #f59e0b; color: white; }
-    .bg-purple { background-color: #8b5cf6; color: white; }
-    .bg-teal { background-color: #14b8a6; color: white; }
-    .bg-indigo { background-color: #6366f1; color: white; }
-
-    .page-header {
-        margin-bottom: 2rem;
-    }
-
-    .page-title {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: #1a1d29;
-        margin-bottom: 0.5rem;
-    }
-
-    .page-subtitle {
-        color: #64748b;
-        font-size: 0.95rem;
-    }
-
-    .progress {
-        height: 6px;
-        background-color: #f1f5f9;
-        border-radius: 3px;
-        margin-top: 0.5rem;
-    }
-
-    .progress-bar {
-        border-radius: 3px;
-    }
-
-    .section-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #1a1d29;
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.75rem;
         border-bottom: 1px solid #e2e8f0;
     }
 
@@ -150,6 +110,12 @@
         
         .stats-value {
             font-size: 1.5rem;
+        }
+
+        .chart-container,
+        .chart-container-small,
+        .chart-container-large {
+            height: 250px;
         }
     }
 </style>
@@ -252,7 +218,9 @@
                     <i class="bi bi-graph-up me-2"></i>Revenue Trend (Last 6 Months)
                 </h3>
             </div>
-            <canvas id="revenueChart" height="70"></canvas>
+            <div class="chart-container">
+                <canvas id="revenueChart"></canvas>
+            </div>
         </div>
     </div>
     
@@ -264,7 +232,9 @@
                     <i class="bi bi-pie-chart me-2"></i>Payment Status
                 </h3>
             </div>
-            <canvas id="paymentStatusChart" height="250"></canvas>
+            <div class="chart-container-small">
+                <canvas id="paymentStatusChart"></canvas>
+            </div>
         </div>
     </div>
 </div>
@@ -278,7 +248,9 @@
                     <i class="bi bi-bar-chart me-2"></i>Revenue by Apartment (Current Month)
                 </h3>
             </div>
-            <canvas id="apartmentRevenueChart" height="50"></canvas>
+            <div class="chart-container-large">
+                <canvas id="apartmentRevenueChart"></canvas>
+            </div>
         </div>
     </div>
 </div>
@@ -360,15 +332,29 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <script>
+    // Parse data from Django template
+    const revenueData = {{ revenue_data|safe }};
+    const monthsLabels = {{ months_labels|safe }};
+    const paymentStatusData = {{ payment_status|safe }};
+    const apartmentRevenueData = {{ apartment_revenue|safe }};
+    const apartmentLabels = {{ apartment_labels|safe }};
+
+    // Debug: Log data to console
+    console.log('Revenue Data:', revenueData);
+    console.log('Months Labels:', monthsLabels);
+    console.log('Payment Status:', paymentStatusData);
+    console.log('Apartment Revenue:', apartmentRevenueData);
+    console.log('Apartment Labels:', apartmentLabels);
+
     // Revenue Trend Line Chart
     const revenueCtx = document.getElementById('revenueChart').getContext('2d');
     const revenueChart = new Chart(revenueCtx, {
         type: 'line',
         data: {
-            labels: {{ months_labels|safe }},
+            labels: monthsLabels,
             datasets: [{
                 label: 'Revenue (KES)',
-                data: {{ revenue_data|safe }},
+                data: revenueData,
                 borderColor: '#6366f1',
                 backgroundColor: 'rgba(99, 102, 241, 0.05)',
                 borderWidth: 2,
@@ -436,7 +422,7 @@
         data: {
             labels: ['Paid', 'Partially Paid', 'Unpaid', 'Overdue'],
             datasets: [{
-                data: {{ payment_status|safe }},
+                data: paymentStatusData,
                 backgroundColor: [
                     '#10b981',
                     '#f59e0b',
@@ -476,10 +462,10 @@
     const apartmentRevenueChart = new Chart(apartmentRevenueCtx, {
         type: 'bar',
         data: {
-            labels: {{ apartment_labels|safe }},
+            labels: apartmentLabels,
             datasets: [{
                 label: 'Revenue (KES)',
-                data: {{ apartment_revenue|safe }},
+                data: apartmentRevenueData,
                 backgroundColor: 'rgba(99, 102, 241, 0.7)',
                 borderColor: '#6366f1',
                 borderWidth: 1,
