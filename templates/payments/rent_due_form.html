@@ -1,0 +1,415 @@
+{% extends 'admin_base.html' %}
+{% load filters %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Create{% endif %} Rent Due - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'rent_dues_list' %}">Rent Dues</a></li>
+            {% if is_edit %}
+            <li class="breadcrumb-item"><a href="{% url 'rent_due_detail' due.pk %}">Due Details</a></li>
+            <li class="breadcrumb-item active">Edit</li>
+            {% else %}
+            <li class="breadcrumb-item active">Create New</li>
+            {% endif %}
+        </ol>
+    </nav>
+    <h1 class="page-title">
+        <i class="bi bi-{% if is_edit %}pencil{% else %}plus-circle{% endif %} me-2"></i>
+        {% if is_edit %}Edit Rent Due{% else %}Create New Rent Due{% endif %}
+    </h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-calendar-check me-2"></i>Rent Due Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" id="rentDueForm">
+                    {% csrf_token %}
+
+                    {% if is_edit %}
+                    <!-- Tenant & Room Info (Read-only for edit) -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="alert alert-info d-flex align-items-center">
+                                <i class="bi bi-info-circle-fill me-2" style="font-size: 1.5rem;"></i>
+                                <div>
+                                    <strong>Tenant:</strong> {{ due.tenant.get_full_name }} 
+                                    <span class="mx-2">|</span>
+                                    <strong>Room:</strong> {{ due.tenancy.room.room_number }}
+                                    <span class="mx-2">|</span>
+                                    <strong>Apartment:</strong> {{ due.tenancy.apartment.name }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Amount Due -->
+                    <div class="mb-3">
+                        <label for="amount_due" class="form-label">
+                            <i class="bi bi-currency-dollar me-1"></i>Amount Due <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">KES</span>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="amount_due" 
+                                   name="amount_due" 
+                                   step="0.01" 
+                                   min="0" 
+                                   value="{{ due.amount_due }}"
+                                   required>
+                        </div>
+                        <small class="text-muted">Monthly rent amount for this tenancy</small>
+                    </div>
+
+                    <!-- Amount Paid -->
+                    <div class="mb-3">
+                        <label for="amount_paid" class="form-label">
+                            <i class="bi bi-cash me-1"></i>Amount Paid
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">KES</span>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="amount_paid" 
+                                   name="amount_paid" 
+                                   step="0.01" 
+                                   min="0" 
+                                   max="{{ due.amount_due }}"
+                                   value="{{ due.amount_paid }}"
+                                   oninput="calculateBalance()">
+                        </div>
+                        <small class="text-muted">Total amount already paid by tenant</small>
+                    </div>
+
+                    <!-- Balance (Auto-calculated) -->
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="bi bi-calculator me-1"></i>Balance Remaining
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">KES</span>
+                            <input type="text" 
+                                   class="form-control bg-light" 
+                                   id="balance_display" 
+                                   value="{{ due.balance }}"
+                                   readonly>
+                        </div>
+                    </div>
+
+                    <!-- Status -->
+                    <div class="mb-3">
+                        <label for="status" class="form-label">
+                            <i class="bi bi-flag me-1"></i>Payment Status <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" id="status" name="status" required>
+                            <option value="unpaid" {% if due.status == 'unpaid' %}selected{% endif %}>
+                                Unpaid
+                            </option>
+                            <option value="partially_paid" {% if due.status == 'partially_paid' %}selected{% endif %}>
+                                Partially Paid
+                            </option>
+                            <option value="paid" {% if due.status == 'paid' %}selected{% endif %}>
+                                Paid
+                            </option>
+                            <option value="overdue" {% if due.status == 'overdue' %}selected{% endif %}>
+                                Overdue
+                            </option>
+                        </select>
+                    </div>
+
+                    {% else %}
+                    <!-- Create Mode - Tenancy Selection -->
+                    <div class="mb-3">
+                        <label for="tenancy" class="form-label">
+                            <i class="bi bi-building me-1"></i>Select Tenancy <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" id="tenancy" name="tenancy" required onchange="updateTenancyDetails()">
+                            <option value="">Choose a tenancy...</option>
+                            {% for tenancy in tenancies %}
+                            <option value="{{ tenancy.pk }}" 
+                                    data-rent="{{ tenancy.room.monthly_rent }}"
+                                    data-tenant="{{ tenancy.tenant.get_full_name }}"
+                                    data-room="{{ tenancy.room.room_number }}"
+                                    data-apartment="{{ tenancy.apartment.name }}">
+                                {{ tenancy.tenant.get_full_name }} - {{ tenancy.apartment.name }} (Room {{ tenancy.room.room_number }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Select the active tenancy for which to create rent due</small>
+                    </div>
+
+                    <!-- Selected Tenancy Info Display -->
+                    <div id="tenancy-info" class="alert alert-light d-none mb-3">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Tenant</small>
+                                <strong id="display-tenant">-</strong>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Room</small>
+                                <strong id="display-room">-</strong>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Monthly Rent</small>
+                                <strong id="display-rent" class="text-primary">KES 0.00</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Month For -->
+                    <div class="mb-3">
+                        <label for="month_for" class="form-label">
+                            <i class="bi bi-calendar-month me-1"></i>Rent For Month <span class="text-danger">*</span>
+                        </label>
+                        <input type="date" 
+                               class="form-control" 
+                               id="month_for" 
+                               name="month_for" 
+                               required
+                               onchange="calculateDueDate()">
+                        <small class="text-muted">Select the first day of the month this rent is for</small>
+                    </div>
+
+                    <!-- Due Date Display -->
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="bi bi-calendar-event me-1"></i>Due Date (Auto-calculated)
+                        </label>
+                        <input type="text" 
+                               class="form-control bg-light" 
+                               id="due_date_display" 
+                               value="Select month first"
+                               readonly>
+                        <small class="text-muted">Rent is always due on the 3rd of each month</small>
+                    </div>
+
+                    <!-- Amount Due -->
+                    <div class="mb-3">
+                        <label for="amount_due" class="form-label">
+                            <i class="bi bi-currency-dollar me-1"></i>Amount Due <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">KES</span>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="amount_due" 
+                                   name="amount_due" 
+                                   step="0.01" 
+                                   min="0" 
+                                   required>
+                        </div>
+                        <small class="text-muted">Amount will auto-fill based on selected tenancy's monthly rent</small>
+                    </div>
+                    {% endif %}
+
+                    <!-- Form Actions -->
+                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                        <a href="{% if is_edit %}{% url 'rent_due_detail' due.pk %}{% else %}{% url 'rent_dues_list' %}{% endif %}" 
+                           class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>
+                            {% if is_edit %}Update Rent Due{% else %}Create Rent Due{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div class="col-lg-4">
+        <!-- Help Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-question-circle me-2"></i>Help & Guidelines
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6 class="text-primary">
+                        <i class="bi bi-info-circle me-1"></i>Due Date Policy
+                    </h6>
+                    <p class="small mb-0">
+                        Rent is always due on the <strong>3rd of each month</strong>. The system automatically 
+                        calculates the due date based on the selected month.
+                    </p>
+                </div>
+
+                <hr>
+
+                <div class="mb-3">
+                    <h6 class="text-primary">
+                        <i class="bi bi-calendar-check me-1"></i>Payment Status
+                    </h6>
+                    <ul class="small mb-0 ps-3">
+                        <li><strong>Unpaid:</strong> No payment received</li>
+                        <li><strong>Partially Paid:</strong> Some payment received</li>
+                        <li><strong>Paid:</strong> Fully paid</li>
+                        <li><strong>Overdue:</strong> Past due date and unpaid</li>
+                    </ul>
+                </div>
+
+                {% if not is_edit %}
+                <hr>
+
+                <div>
+                    <h6 class="text-primary">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Important Notes
+                    </h6>
+                    <ul class="small mb-0 ps-3">
+                        <li>Only active tenancies are available</li>
+                        <li>Cannot create duplicate rent due for same month</li>
+                        <li>Tenant will receive automatic notification</li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if is_edit %}
+        <!-- Current Details Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle me-2"></i>Current Details
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted d-block">Due Date</small>
+                    <strong>{{ due.due_date|date:"F d, Y" }}</strong>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted d-block">Rent For</small>
+                    <strong>{{ due.month_for|date:"F Y" }}</strong>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted d-block">Created</small>
+                    <strong>{{ due.created_at|date:"M d, Y H:i A" }}</strong>
+                </div>
+                <div>
+                    <small class="text-muted d-block">Last Updated</small>
+                    <strong>{{ due.updated_at|date:"M d, Y H:i A" }}</strong>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.form-label i {
+    color: #6c757d;
+}
+
+.input-group-text {
+    background-color: #f8f9fa;
+    font-weight: 500;
+}
+
+.alert-light {
+    border-left: 4px solid #0d6efd;
+}
+</style>
+
+<script>
+{% if is_edit %}
+// Calculate balance for edit mode
+function calculateBalance() {
+    const amountDue = parseFloat(document.getElementById('amount_due').value) || 0;
+    const amountPaid = parseFloat(document.getElementById('amount_paid').value) || 0;
+    const balance = amountDue - amountPaid;
+    
+    document.getElementById('balance_display').value = balance.toFixed(2);
+    
+    // Auto-update status based on payment
+    const statusSelect = document.getElementById('status');
+    if (balance <= 0) {
+        statusSelect.value = 'paid';
+    } else if (amountPaid > 0) {
+        statusSelect.value = 'partially_paid';
+    }
+}
+
+// Initialize on page load
+document.getElementById('amount_due').addEventListener('input', calculateBalance);
+calculateBalance();
+{% else %}
+// Update tenancy details for create mode
+function updateTenancyDetails() {
+    const select = document.getElementById('tenancy');
+    const option = select.options[select.selectedIndex];
+    
+    if (option.value) {
+        const rent = option.dataset.rent;
+        const tenant = option.dataset.tenant;
+        const room = option.dataset.room;
+        const apartment = option.dataset.apartment;
+        
+        // Show info panel
+        document.getElementById('tenancy-info').classList.remove('d-none');
+        
+        // Update display
+        document.getElementById('display-tenant').textContent = tenant;
+        document.getElementById('display-room').textContent = room + ' - ' + apartment;
+        document.getElementById('display-rent').textContent = 'KES ' + parseFloat(rent).toFixed(2);
+        
+        // Auto-fill amount due
+        document.getElementById('amount_due').value = parseFloat(rent).toFixed(2);
+    } else {
+        document.getElementById('tenancy-info').classList.add('d-none');
+        document.getElementById('amount_due').value = '';
+    }
+}
+
+// Calculate due date (3rd of selected month)
+function calculateDueDate() {
+    const monthFor = document.getElementById('month_for').value;
+    
+    if (monthFor) {
+        const date = new Date(monthFor);
+        date.setDate(3);
+        
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        const formattedDate = date.toLocaleDateString('en-US', options);
+        
+        document.getElementById('due_date_display').value = formattedDate;
+    } else {
+        document.getElementById('due_date_display').value = 'Select month first';
+    }
+}
+
+// Form validation
+document.getElementById('rentDueForm').addEventListener('submit', function(e) {
+    const tenancy = document.getElementById('tenancy').value;
+    const monthFor = document.getElementById('month_for').value;
+    const amountDue = document.getElementById('amount_due').value;
+    
+    if (!tenancy || !monthFor || !amountDue) {
+        e.preventDefault();
+        alert('Please fill in all required fields.');
+        return false;
+    }
+    
+    if (parseFloat(amountDue) <= 0) {
+        e.preventDefault();
+        alert('Amount due must be greater than zero.');
+        return false;
+    }
+});
+{% endif %}
+</script>
+
+{% endblock %}
