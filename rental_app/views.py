@@ -805,3 +805,658 @@ def room_type_delete(request, pk):
         return redirect('room_type_list')
     
     return redirect('room_type_detail', pk=pk)
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db.models import Q, Count, Sum, Max
+from django.utils import timezone
+from django.core.paginator import Paginator
+from .models import User, Tenancy, Room, Apartment, RentDue, RentPayment
+from decimal import Decimal
+from datetime import datetime, timedelta
+
+
+# ==================== TENANT VIEWS ====================
+
+@login_required
+def tenant_list(request):
+    """List all tenants (active and inactive)"""
+    # Get all tenants for this admin's apartments
+    tenants = User.objects.filter(
+        user_type='tenant',
+        tenancies__apartment__owner=request.user
+    ).distinct().annotate(
+        total_tenancies=Count('tenancies'),
+        active_tenancy_count=Count('tenancies', filter=Q(tenancies__status='active'))
+    ).order_by('-created_at')
+    
+    # Filters
+    status_filter = request.GET.get('status', '')
+    search_query = request.GET.get('search', '')
+    apartment_filter = request.GET.get('apartment', '')
+    
+    if status_filter:
+        tenants = tenants.filter(user_status=status_filter)
+    
+    if search_query:
+        tenants = tenants.filter(
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query) |
+            Q(phone_number__icontains=search_query) |
+            Q(national_id__icontains=search_query)
+        )
+    
+    if apartment_filter:
+        tenants = tenants.filter(tenancies__apartment_id=apartment_filter)
+    
+    # Get apartments for filter
+    apartments = Apartment.objects.filter(owner=request.user)
+    
+    # Statistics
+    total_tenants = tenants.count()
+    active_tenants = tenants.filter(user_status='active').count()
+    inactive_tenants = tenants.filter(user_status='inactive').count()
+    
+    # Pagination
+    paginator = Paginator(tenants, 20)
+    page_number = request.GET.get('page')
+    tenants_page = paginator.get_page(page_number)
+    
+    context = {
+        'tenants': tenants_page,
+        'total_tenants': total_tenants,
+        'active_tenants': active_tenants,
+        'inactive_tenants': inactive_tenants,
+        'apartments': apartments,
+        'status_filter': status_filter,
+        'search_query': search_query,
+        'apartment_filter': apartment_filter,
+    }
+    
+    return render(request, 'tenants/tenant_list.html', context)
+
+@login_required
+def tenant_detail(request, pk):
+    """View single tenant details"""
+    # Get tenant ensuring it's a tenant user
+    tenant = get_object_or_404(
+        User.objects.filter(user_type='tenant'),
+        pk=pk
+    )
+
+    # Verify this tenant belongs to one of the admin's apartments
+    if not Tenancy.objects.filter(
+        tenant=tenant,
+        apartment__owner=request.user
+    ).exists():
+        messages.error(request, 'Tenant not found.')
+        return redirect('tenant_list')
+
+    # Get all tenancies for this tenant
+    tenancies = Tenancy.objects.filter(
+        tenant=tenant,
+        apartment__owner=request.user
+    ).select_related('room', 'apartment').order_by('-start_date')
+
+    # Current active tenancy
+    current_tenancy = tenancies.filter(status='active').first()
+
+    # Payment history (fetch top 10 latest)
+    payments_qs = RentPayment.objects.filter(
+        tenant=tenant,
+        apartment__owner=request.user
+    ).select_related('tenancy', 'tenancy__room').order_by('-payment_date')
+
+    payments = list(payments_qs[:10])  # Convert slice to list before further filtering
+
+    # Calculate total paid — apply filter to full queryset, not sliced list
+    total_paid = payments_qs.filter(status='completed').aggregate(
+        total=Sum('amount')
+    )['total'] or Decimal('0.00')
+
+    # Outstanding dues
+    outstanding_dues = RentDue.objects.filter(
+        tenant=tenant,
+        tenancy__apartment__owner=request.user,
+        status__in=['unpaid', 'partially_paid', 'overdue']
+    ).select_related('tenancy', 'tenancy__room')
+
+    total_outstanding = outstanding_dues.aggregate(
+        total=Sum('balance')
+    )['total'] or Decimal('0.00')
+
+    context = {
+        'tenant': tenant,
+        'current_tenancy': current_tenancy,
+        'tenancies': tenancies,
+        'payments': payments,
+        'outstanding_dues': outstanding_dues,
+        'total_outstanding': total_outstanding,
+        'total_paid': total_paid,
+    }
+
+    return render(request, 'tenants/tenant_detail.html', context)
+
+@login_required
+def tenant_create(request):
+    """Create new tenant (user account)"""
+    if request.method == 'POST':
+        # Get form data
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        email = request.POST.get('email')
+        phone_number = request.POST.get('phone_number')
+        national_id = request.POST.get('national_id')
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        
+        # Validation
+        if not all([first_name, last_name, phone_number, username, password]):
+            messages.error(request, 'Please fill in all required fields.')
+            return render(request, 'tenants/tenant_form.html', {'form_data': request.POST})
+        
+        # Check if username exists
+        if User.objects.filter(username=username).exists():
+            messages.error(request, 'Username already exists.')
+            return render(request, 'tenants/tenant_form.html', {'form_data': request.POST})
+        
+        # Check if phone number exists
+        if User.objects.filter(phone_number=phone_number).exists():
+            messages.error(request, 'Phone number already exists.')
+            return render(request, 'tenants/tenant_form.html', {'form_data': request.POST})
+        
+        # Check if national ID exists (if provided)
+        if national_id and User.objects.filter(national_id=national_id).exists():
+            messages.error(request, 'National ID already exists.')
+            return render(request, 'tenants/tenant_form.html', {'form_data': request.POST})
+        
+        try:
+            tenant = User.objects.create_user(
+                username=username,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                phone_number=phone_number,
+                national_id=national_id if national_id else None,
+                user_type='tenant',
+                user_status='active'
+            )
+            messages.success(request, f'Tenant "{tenant.get_full_name()}" created successfully!')
+            return redirect('tenant_detail', pk=tenant.pk)
+        except Exception as e:
+            messages.error(request, f'Error creating tenant: {str(e)}')
+            return render(request, 'tenants/tenant_form.html', {'form_data': request.POST})
+    
+    return render(request, 'tenants/tenant_form.html')
+
+
+@login_required
+def tenant_edit(request, pk):
+    """Edit existing tenant"""
+    tenant = get_object_or_404(
+        User.objects.filter(user_type='tenant'),
+        pk=pk
+    )
+    
+    # Verify this tenant belongs to one of admin's apartments
+    if not Tenancy.objects.filter(
+        tenant=tenant,
+        apartment__owner=request.user
+    ).exists():
+        messages.error(request, 'Tenant not found.')
+        return redirect('tenant_list')
+    
+    if request.method == 'POST':
+        tenant.first_name = request.POST.get('first_name')
+        tenant.last_name = request.POST.get('last_name')
+        tenant.email = request.POST.get('email')
+        tenant.phone_number = request.POST.get('phone_number')
+        tenant.national_id = request.POST.get('national_id') or None
+        tenant.user_status = request.POST.get('user_status')
+        
+        # Check if phone number is taken by another user
+        if User.objects.filter(phone_number=tenant.phone_number).exclude(pk=tenant.pk).exists():
+            messages.error(request, 'Phone number already exists.')
+            return render(request, 'tenants/tenant_form.html', {'tenant': tenant, 'is_edit': True})
+        
+        # Check if national ID is taken by another user
+        if tenant.national_id and User.objects.filter(national_id=tenant.national_id).exclude(pk=tenant.pk).exists():
+            messages.error(request, 'National ID already exists.')
+            return render(request, 'tenants/tenant_form.html', {'tenant': tenant, 'is_edit': True})
+        
+        try:
+            tenant.save()
+            messages.success(request, f'Tenant "{tenant.get_full_name()}" updated successfully!')
+            return redirect('tenant_detail', pk=tenant.pk)
+        except Exception as e:
+            messages.error(request, f'Error updating tenant: {str(e)}')
+    
+    context = {
+        'tenant': tenant,
+        'is_edit': True,
+    }
+    
+    return render(request, 'tenants/tenant_form.html', context)
+
+
+@login_required
+def tenant_delete(request, pk):
+    """Soft delete tenant (archive)"""
+    tenant = get_object_or_404(
+        User.objects.filter(user_type='tenant'),
+        pk=pk
+    )
+    
+    # Verify this tenant belongs to one of admin's apartments
+    if not Tenancy.objects.filter(
+        tenant=tenant,
+        apartment__owner=request.user
+    ).exists():
+        messages.error(request, 'Tenant not found.')
+        return redirect('tenant_list')
+    
+    if request.method == 'POST':
+        # Check if tenant has active tenancies
+        active_tenancies = Tenancy.objects.filter(tenant=tenant, status='active').count()
+        if active_tenancies > 0:
+            messages.error(request, 'Cannot delete tenant with active tenancies.')
+            return redirect('tenant_detail', pk=pk)
+        
+        # Soft delete
+        tenant.user_status = 'archived'
+        tenant.is_deleted = True
+        tenant.deleted_at = timezone.now()
+        tenant.save()
+        
+        messages.success(request, f'Tenant "{tenant.get_full_name()}" archived successfully!')
+        return redirect('tenant_list')
+    
+    return redirect('tenant_detail', pk=pk)
+
+
+# ==================== ACTIVE TENANT VIEWS ====================
+
+@login_required
+def active_tenant_list(request):
+    """List only active tenants with current tenancies"""
+    # Get tenants with active tenancies
+    active_tenancies = Tenancy.objects.filter(
+        apartment__owner=request.user,
+        status='active'
+    ).select_related('tenant', 'room', 'apartment').order_by('apartment', 'room__room_number')
+    
+    # Filters
+    apartment_filter = request.GET.get('apartment', '')
+    search_query = request.GET.get('search', '')
+    payment_status_filter = request.GET.get('payment_status', '')
+    
+    if apartment_filter:
+        active_tenancies = active_tenancies.filter(apartment_id=apartment_filter)
+    
+    if search_query:
+        active_tenancies = active_tenancies.filter(
+            Q(tenant__first_name__icontains=search_query) |
+            Q(tenant__last_name__icontains=search_query) |
+            Q(room__room_number__icontains=search_query)
+        )
+    
+    # Get current month rent dues for payment status filter
+    today = timezone.now().date()
+    current_month = today.replace(day=1)
+    
+    if payment_status_filter:
+        tenancy_ids = RentDue.objects.filter(
+            month_for=current_month,
+            status=payment_status_filter
+        ).values_list('tenancy_id', flat=True)
+        active_tenancies = active_tenancies.filter(id__in=tenancy_ids)
+    
+    # Annotate with payment status
+    tenancy_list = []
+    for tenancy in active_tenancies:
+        # Get current month due
+        current_due = RentDue.objects.filter(
+            tenancy=tenancy,
+            month_for=current_month
+        ).first()
+        
+        tenancy.current_due_status = current_due.status if current_due else 'N/A'
+        tenancy.current_balance = current_due.balance if current_due else Decimal('0.00')
+        tenancy_list.append(tenancy)
+    
+    # Get apartments for filter
+    apartments = Apartment.objects.filter(owner=request.user)
+    
+    # Statistics
+    total_active = len(tenancy_list)
+    paid_count = sum(1 for t in tenancy_list if t.current_due_status == 'paid')
+    unpaid_count = sum(1 for t in tenancy_list if t.current_due_status in ['unpaid', 'overdue'])
+    
+    # Pagination
+    paginator = Paginator(tenancy_list, 20)
+    page_number = request.GET.get('page')
+    tenancies_page = paginator.get_page(page_number)
+    
+    context = {
+        'active_tenancies': tenancies_page,
+        'total_active': total_active,
+        'paid_count': paid_count,
+        'unpaid_count': unpaid_count,
+        'apartments': apartments,
+        'apartment_filter': apartment_filter,
+        'search_query': search_query,
+        'payment_status_filter': payment_status_filter,
+    }
+    
+    return render(request, 'tenants/active_tenant_list.html', context)
+
+
+# ==================== TENANCY VIEWS ====================
+
+@login_required
+def tenancy_list(request):
+    """List all tenancies with filters"""
+    tenancies = Tenancy.objects.filter(
+        apartment__owner=request.user
+    ).select_related('tenant', 'room', 'apartment').order_by('-start_date')
+    
+    # Filters
+    status_filter = request.GET.get('status', '')
+    apartment_filter = request.GET.get('apartment', '')
+    search_query = request.GET.get('search', '')
+    
+    if status_filter:
+        tenancies = tenancies.filter(status=status_filter)
+    
+    if apartment_filter:
+        tenancies = tenancies.filter(apartment_id=apartment_filter)
+    
+    if search_query:
+        tenancies = tenancies.filter(
+            Q(tenant__first_name__icontains=search_query) |
+            Q(tenant__last_name__icontains=search_query) |
+            Q(room__room_number__icontains=search_query)
+        )
+    
+    # Get apartments for filter
+    apartments = Apartment.objects.filter(owner=request.user)
+    
+    # Statistics
+    total_tenancies = tenancies.count()
+    active_count = tenancies.filter(status='active').count()
+    terminated_count = tenancies.filter(status='terminated').count()
+    
+    # Pagination
+    paginator = Paginator(tenancies, 20)
+    page_number = request.GET.get('page')
+    tenancies_page = paginator.get_page(page_number)
+    
+    context = {
+        'tenancies': tenancies_page,
+        'total_tenancies': total_tenancies,
+        'active_count': active_count,
+        'terminated_count': terminated_count,
+        'apartments': apartments,
+        'status_filter': status_filter,
+        'apartment_filter': apartment_filter,
+        'search_query': search_query,
+    }
+    
+    return render(request, 'tenants/tenancy_list.html', context)
+
+
+@login_required
+def tenancy_detail(request, pk):
+    """View single tenancy details"""
+    tenancy = get_object_or_404(
+        Tenancy.objects.select_related('tenant', 'room', 'apartment'),
+        pk=pk,
+        apartment__owner=request.user
+    )
+    
+    # Payment history for this tenancy
+    payments = RentPayment.objects.filter(
+        tenancy=tenancy
+    ).order_by('-payment_date')
+    
+    # Rent dues for this tenancy
+    rent_dues = RentDue.objects.filter(
+        tenancy=tenancy
+    ).order_by('-due_date')
+    
+    # Calculate totals
+    total_paid = payments.filter(status='completed').aggregate(
+        total=Sum('amount')
+    )['total'] or Decimal('0.00')
+    
+    total_due = rent_dues.aggregate(
+        total=Sum('amount_due')
+    )['total'] or Decimal('0.00')
+    
+    total_balance = rent_dues.aggregate(
+        total=Sum('balance')
+    )['total'] or Decimal('0.00')
+    
+    # Duration calculation
+    if tenancy.end_date:
+        duration_days = (tenancy.end_date - tenancy.start_date).days
+        duration_months = duration_days // 30
+    else:
+        duration_days = (timezone.now().date() - tenancy.start_date).days
+        duration_months = duration_days // 30
+    
+    context = {
+        'tenancy': tenancy,
+        'payments': payments,
+        'rent_dues': rent_dues,
+        'total_paid': total_paid,
+        'total_due': total_due,
+        'total_balance': total_balance,
+        'duration_months': duration_months,
+        'duration_days': duration_days,
+    }
+    
+    return render(request, 'tenants/tenancy_detail.html', context)
+
+
+@login_required
+def tenancy_create(request):
+    """Create new tenancy"""
+    # Get available rooms and tenants
+    available_rooms = Room.objects.filter(
+        apartment__owner=request.user,
+        status='available'
+    ).select_related('apartment', 'room_type')
+    
+    # Get all tenants (for selecting existing or need to create new)
+    tenants = User.objects.filter(user_type='tenant', user_status='active')
+    
+    apartments = Apartment.objects.filter(owner=request.user)
+    
+    if request.method == 'POST':
+        tenant_id = request.POST.get('tenant')
+        room_id = request.POST.get('room')
+        start_date = request.POST.get('start_date')
+        deposit_paid = request.POST.get('deposit_paid')
+        move_in_condition = request.POST.get('move_in_condition', '')
+        
+        # Validation
+        if not all([tenant_id, room_id, start_date, deposit_paid]):
+            messages.error(request, 'Please fill in all required fields.')
+            return render(request, 'tenants/tenancy_form.html', {
+                'available_rooms': available_rooms,
+                'tenants': tenants,
+                'apartments': apartments,
+                'form_data': request.POST
+            })
+        
+        try:
+            tenant = get_object_or_404(User, pk=tenant_id, user_type='tenant')
+            room = get_object_or_404(Room, pk=room_id, apartment__owner=request.user)
+            
+            # Check if room is available
+            if room.status != 'available':
+                messages.error(request, 'Selected room is not available.')
+                return render(request, 'tenants/tenancy_form.html', {
+                    'available_rooms': available_rooms,
+                    'tenants': tenants,
+                    'apartments': apartments,
+                    'form_data': request.POST
+                })
+            
+            # Check if tenant has active tenancy
+            if Tenancy.objects.filter(tenant=tenant, status='active').exists():
+                messages.error(request, 'Tenant already has an active tenancy.')
+                return render(request, 'tenants/tenancy_form.html', {
+                    'available_rooms': available_rooms,
+                    'tenants': tenants,
+                    'apartments': apartments,
+                    'form_data': request.POST
+                })
+            
+            # Create tenancy
+            tenancy = Tenancy.objects.create(
+                tenant=tenant,
+                room=room,
+                apartment=room.apartment,
+                start_date=datetime.strptime(start_date, '%Y-%m-%d').date(),
+                deposit_paid=Decimal(deposit_paid),
+                move_in_condition=move_in_condition,
+                status='active'
+            )
+            
+            # Update room status
+            room.status = 'occupied'
+            room.save()
+            
+            # Create first month rent due
+            first_due_date = tenancy.start_date.replace(day=3)
+            if first_due_date < tenancy.start_date:
+                # If start date is after 3rd, due date is next month
+                if first_due_date.month == 12:
+                    first_due_date = first_due_date.replace(year=first_due_date.year + 1, month=1)
+                else:
+                    first_due_date = first_due_date.replace(month=first_due_date.month + 1)
+            
+            RentDue.objects.create(
+                tenancy=tenancy,
+                tenant=tenant,
+                due_date=first_due_date,
+                month_for=tenancy.start_date.replace(day=1),
+                amount_due=room.monthly_rent,
+                balance=room.monthly_rent,
+                status='unpaid'
+            )
+            
+            messages.success(request, f'Tenancy created successfully for {tenant.get_full_name()}!')
+            return redirect('tenancy_detail', pk=tenancy.pk)
+            
+        except Exception as e:
+            messages.error(request, f'Error creating tenancy: {str(e)}')
+            return render(request, 'tenants/tenancy_form.html', {
+                'available_rooms': available_rooms,
+                'tenants': tenants,
+                'apartments': apartments,
+                'form_data': request.POST
+            })
+    
+    context = {
+        'available_rooms': available_rooms,
+        'tenants': tenants,
+        'apartments': apartments,
+    }
+    
+    return render(request, 'tenants/tenancy_form.html', context)
+
+
+@login_required
+def tenancy_edit(request, pk):
+    """Edit existing tenancy"""
+    tenancy = get_object_or_404(
+        Tenancy.objects.select_related('tenant', 'room', 'apartment'),
+        pk=pk,
+        apartment__owner=request.user
+    )
+    
+    if request.method == 'POST':
+        tenancy.deposit_paid = Decimal(request.POST.get('deposit_paid'))
+        tenancy.move_in_condition = request.POST.get('move_in_condition', '')
+        
+        # Only allow editing end date and status for termination
+        if request.POST.get('status') == 'terminated':
+            tenancy.status = 'terminated'
+            tenancy.end_date = datetime.strptime(request.POST.get('end_date'), '%Y-%m-%d').date()
+            tenancy.termination_reason = request.POST.get('termination_reason')
+            tenancy.move_out_condition = request.POST.get('move_out_condition', '')
+            
+            # Handle deposit refund
+            tenancy.deposit_refunded = request.POST.get('deposit_refunded') == 'on'
+            if tenancy.deposit_refunded:
+                tenancy.deposit_refund_amount = Decimal(request.POST.get('deposit_refund_amount', '0.00'))
+                tenancy.deposit_deduction_reason = request.POST.get('deposit_deduction_reason', '')
+            
+            # Update room status
+            tenancy.room.status = 'available'
+            tenancy.room.save()
+        
+        try:
+            tenancy.save()
+            messages.success(request, 'Tenancy updated successfully!')
+            return redirect('tenancy_detail', pk=tenancy.pk)
+        except Exception as e:
+            messages.error(request, f'Error updating tenancy: {str(e)}')
+    
+    context = {
+        'tenancy': tenancy,
+        'is_edit': True,
+    }
+    
+    return render(request, 'tenants/tenancy_form.html', context)
+
+
+@login_required
+def tenancy_terminate(request, pk):
+    """Terminate a tenancy"""
+    tenancy = get_object_or_404(
+        Tenancy.objects.select_related('tenant', 'room'),
+        pk=pk,
+        apartment__owner=request.user,
+        status='active'
+    )
+    
+    if request.method == 'POST':
+        end_date = request.POST.get('end_date')
+        termination_reason = request.POST.get('termination_reason')
+        move_out_condition = request.POST.get('move_out_condition', '')
+        deposit_refunded = request.POST.get('deposit_refunded') == 'on'
+        deposit_refund_amount = request.POST.get('deposit_refund_amount', '0.00')
+        deposit_deduction_reason = request.POST.get('deposit_deduction_reason', '')
+        
+        try:
+            tenancy.status = 'terminated'
+            tenancy.end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            tenancy.termination_reason = termination_reason
+            tenancy.move_out_condition = move_out_condition
+            tenancy.deposit_refunded = deposit_refunded
+            tenancy.deposit_refund_amount = Decimal(deposit_refund_amount) if deposit_refunded else Decimal('0.00')
+            tenancy.deposit_deduction_reason = deposit_deduction_reason
+            tenancy.save()
+            
+            # Update room status
+            tenancy.room.status = 'available'
+            tenancy.room.save()
+            
+            messages.success(request, f'Tenancy terminated successfully!')
+            return redirect('tenancy_detail', pk=tenancy.pk)
+            
+        except Exception as e:
+            messages.error(request, f'Error terminating tenancy: {str(e)}')
+    
+    context = {
+        'tenancy': tenancy,
+    }
+    
+    return render(request, 'tenants/tenancy_terminate.html', context)

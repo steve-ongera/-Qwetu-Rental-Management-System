@@ -1,0 +1,221 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Active Tenants - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <h1 class="page-title">
+        <i class="bi bi-person-check me-2"></i>Active Tenants
+    </h1>
+    <p class="page-subtitle">Currently occupying rooms</p>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ total_active }}</h3>
+                        <small>Active Tenants</small>
+                    </div>
+                    <i class="bi bi-people" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ paid_count }}</h3>
+                        <small>Paid This Month</small>
+                    </div>
+                    <i class="bi bi-check-circle" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ unpaid_count }}</h3>
+                        <small>Pending Payment</small>
+                    </div>
+                    <i class="bi bi-exclamation-triangle" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Apartment</label>
+                <select name="apartment" class="form-select">
+                    <option value="">All Apartments</option>
+                    {% for apartment in apartments %}
+                    <option value="{{ apartment.pk }}" {% if apartment_filter == apartment.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ apartment.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Payment Status</label>
+                <select name="payment_status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="paid" {% if payment_status_filter == 'paid' %}selected{% endif %}>Paid</option>
+                    <option value="partially_paid" {% if payment_status_filter == 'partially_paid' %}selected{% endif %}>Partially Paid</option>
+                    <option value="unpaid" {% if payment_status_filter == 'unpaid' %}selected{% endif %}>Unpaid</option>
+                    <option value="overdue" {% if payment_status_filter == 'overdue' %}selected{% endif %}>Overdue</option>
+                </select>
+            </div>
+            
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" 
+                       placeholder="Name or room number..." value="{{ search_query }}">
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-2"></i>Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Active Tenants Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Tenant</th>
+                        <th>Apartment</th>
+                        <th>Room</th>
+                        <th>Move-in Date</th>
+                        <th>Monthly Rent</th>
+                        <th>Payment Status</th>
+                        <th>Balance</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tenancy in active_tenancies %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle bg-primary text-white me-2">
+                                    {{ tenancy.tenant.first_name.0 }}{{ tenancy.tenant.last_name.0 }}
+                                </div>
+                                <div>
+                                    <strong>{{ tenancy.tenant.get_full_name }}</strong>
+                                    <br><small class="text-muted">{{ tenancy.tenant.phone_number }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ tenancy.apartment.name }}</td>
+                        <td><span class="badge bg-info">{{ tenancy.room.room_number }}</span></td>
+                        <td>{{ tenancy.start_date|date:"M d, Y" }}</td>
+                        <td><strong>KES {{ tenancy.room.monthly_rent|floatformat:0 }}</strong></td>
+                        <td>
+                            {% if tenancy.current_due_status == 'paid' %}
+                            <span class="badge bg-success">Paid</span>
+                            {% elif tenancy.current_due_status == 'partially_paid' %}
+                            <span class="badge bg-warning">Partially Paid</span>
+                            {% elif tenancy.current_due_status == 'overdue' %}
+                            <span class="badge bg-danger">Overdue</span>
+                            {% elif tenancy.current_due_status == 'unpaid' %}
+                            <span class="badge bg-secondary">Unpaid</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tenancy.current_balance > 0 %}
+                            <strong class="text-danger">KES {{ tenancy.current_balance|floatformat:0 }}</strong>
+                            {% else %}
+                            <span class="text-success">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'tenant_detail' tenancy.tenant.pk %}" class="btn btn-outline-primary" title="View Tenant">
+                                    <i class="bi bi-person"></i>
+                                </a>
+                                <a href="{% url 'tenancy_detail' tenancy.pk %}" class="btn btn-outline-success" title="View Tenancy">
+                                    <i class="bi bi-file-earmark-text"></i>
+                                </a>
+                                <a href="{% url 'tenancy_terminate' tenancy.pk %}" class="btn btn-outline-danger" title="Terminate">
+                                    <i class="bi bi-x-circle"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4">
+                            <i class="bi bi-person-check" style="font-size: 3rem; color: #ccc;"></i>
+                            <h5 class="mt-3">No Active Tenants Found</h5>
+                            <p class="text-muted">Try adjusting your filters.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if active_tenancies.has_other_pages %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if active_tenancies.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ active_tenancies.previous_page_number }}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if payment_status_filter %}&payment_status={{ payment_status_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in active_tenancies.paginator.page_range %}
+        <li class="page-item {% if active_tenancies.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if payment_status_filter %}&payment_status={{ payment_status_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        
+        {% if active_tenancies.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ active_tenancies.next_page_number }}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if payment_status_filter %}&payment_status={{ payment_status_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<style>
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}

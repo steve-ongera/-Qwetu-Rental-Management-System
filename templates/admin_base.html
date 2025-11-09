@@ -594,9 +594,9 @@
             <div class="nav-section">
                 <div class="nav-section-title">Tenant Management</div>
                 <ul class="nav-item">
-                    <li><a href="#" class="nav-link"><i class="bi bi-people"></i> All Tenants</a></li>
-                    <li><a href="#" class="nav-link"><i class="bi bi-person-check"></i> Active Tenants</a></li>
-                    <li><a href="#" class="nav-link"><i class="bi bi-file-earmark-text"></i> Tenancies</a></li>
+                    <li><a href="{% url 'tenant_list' %}" class="nav-link"><i class="bi bi-people"></i> All Tenants</a></li>
+                    <li><a href="{% url 'active_tenant_list' %}" class="nav-link"><i class="bi bi-person-check"></i> Active Tenants</a></li>
+                    <li><a href="{% url 'tenancy_list' %}" class="nav-link"><i class="bi bi-file-earmark-text"></i> Tenancies</a></li>
                 </ul>
             </div>
 

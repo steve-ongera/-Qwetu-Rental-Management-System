@@ -1,0 +1,215 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Tenancies - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-file-earmark-text me-2"></i>Tenancies
+        </h1>
+        <p class="page-subtitle">Manage all tenancy records</p>
+    </div>
+    <a href="{% url 'tenancy_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>New Tenancy
+    </a>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ total_tenancies }}</h3>
+                        <small>Total Tenancies</small>
+                    </div>
+                    <i class="bi bi-file-earmark-text" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ active_count }}</h3>
+                        <small>Active</small>
+                    </div>
+                    <i class="bi bi-check-circle" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ terminated_count }}</h3>
+                        <small>Terminated</small>
+                    </div>
+                    <i class="bi bi-x-circle" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                    <option value="terminated" {% if status_filter == 'terminated' %}selected{% endif %}>Terminated</option>
+                    <option value="suspended" {% if status_filter == 'suspended' %}selected{% endif %}>Suspended</option>
+                    <option value="switched" {% if status_filter == 'switched' %}selected{% endif %}>Switched Room</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Apartment</label>
+                <select name="apartment" class="form-select">
+                    <option value="">All Apartments</option>
+                    {% for apartment in apartments %}
+                    <option value="{{ apartment.pk }}" {% if apartment_filter == apartment.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ apartment.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" 
+                       placeholder="Tenant name or room..." value="{{ search_query }}">
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-2"></i>Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tenancies Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Tenant</th>
+                        <th>Apartment</th>
+                        <th>Room</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Deposit</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tenancy in tenancies %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'tenant_detail' tenancy.tenant.pk %}">
+                                {{ tenancy.tenant.get_full_name }}
+                            </a>
+                        </td>
+                        <td>
+                            <a href="{% url 'apartment_detail' tenancy.apartment.pk %}">
+                                {{ tenancy.apartment.name }}
+                            </a>
+                        </td>
+                        <td>
+                            <a href="{% url 'room_detail' tenancy.room.pk %}">
+                                <span class="badge bg-info">{{ tenancy.room.room_number }}</span>
+                            </a>
+                        </td>
+                        <td>{{ tenancy.start_date|date:"M d, Y" }}</td>
+                        <td>
+                            {% if tenancy.end_date %}
+                            {{ tenancy.end_date|date:"M d, Y" }}
+                            {% else %}
+                            <span class="text-success">Present</span>
+                            {% endif %}
+                        </td>
+                        <td>KES {{ tenancy.deposit_paid|floatformat:0 }}</td>
+                        <td>
+                            {% if tenancy.status == 'active' %}
+                            <span class="badge bg-success">Active</span>
+                            {% elif tenancy.status == 'terminated' %}
+                            <span class="badge bg-danger">Terminated</span>
+                            {% elif tenancy.status == 'suspended' %}
+                            <span class="badge bg-warning">Suspended</span>
+                            {% else %}
+                            <span class="badge bg-info">{{ tenancy.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'tenancy_detail' tenancy.pk %}" class="btn btn-outline-primary" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if tenancy.status == 'active' %}
+                                <a href="{% url 'tenancy_edit' tenancy.pk %}" class="btn btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'tenancy_terminate' tenancy.pk %}" class="btn btn-outline-danger" title="Terminate">
+                                    <i class="bi bi-x-circle"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4">
+                            <i class="bi bi-file-earmark-text" style="font-size: 3rem; color: #ccc;"></i>
+                            <h5 class="mt-3">No Tenancies Found</h5>
+                            <p class="text-muted">Try adjusting your filters or create a new tenancy.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if tenancies.has_other_pages %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if tenancies.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ tenancies.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in tenancies.paginator.page_range %}
+        <li class="page-item {% if tenancies.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        
+        {% if tenancies.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ tenancies.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,264 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Create{% endif %} Tenancy - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <h1 class="page-title">
+        <i class="bi bi-file-earmark-text me-2"></i>{% if is_edit %}Edit{% else %}Create New{% endif %} Tenancy
+    </h1>
+    <p class="page-subtitle">{% if is_edit %}Update tenancy information{% else %}Assign a tenant to a room{% endif %}</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% if not is_edit %}
+                    <h6 class="mb-3 text-primary">Tenant & Room Selection</h6>
+                    
+                    <div class="mb-3">
+                        <label for="tenant" class="form-label">Select Tenant <span class="text-danger">*</span></label>
+                        <select class="form-select" id="tenant" name="tenant" required>
+                            <option value="">Choose tenant...</option>
+                            {% for t in tenants %}
+                            <option value="{{ t.pk }}" {% if form_data.tenant == t.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ t.get_full_name }} - {{ t.phone_number }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">
+                            <a href="{% url 'tenant_create' %}" target="_blank">Create new tenant</a> if not in list
+                        </small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="apartment_filter" class="form-label">Filter by Apartment</label>
+                        <select class="form-select" id="apartment_filter" onchange="filterRooms()">
+                            <option value="">All Apartments</option>
+                            {% for apartment in apartments %}
+                            <option value="{{ apartment.pk }}">{{ apartment.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="room" class="form-label">Select Room <span class="text-danger">*</span></label>
+                        <select class="form-select" id="room" name="room" required onchange="updateRoomInfo()">
+                            <option value="">Choose available room...</option>
+                            {% for room in available_rooms %}
+                            <option value="{{ room.pk }}" 
+                                    data-apartment="{{ room.apartment.pk }}"
+                                    data-rent="{{ room.monthly_rent }}"
+                                    data-deposit="{{ room.deposit_amount }}"
+                                    {% if form_data.room == room.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ room.apartment.name }} - Room {{ room.room_number }} ({{ room.room_type }}) - KES {{ room.monthly_rent|floatformat:0 }}/month
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div id="room-info" class="alert alert-info d-none mb-3">
+                        <strong>Room Details:</strong>
+                        <div id="room-details"></div>
+                    </div>
+                    {% endif %}
+                    
+                    <h6 class="mb-3 text-primary mt-4">Tenancy Details</h6>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="start_date" class="form-label">Start Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" 
+                                   value="{% if is_edit %}{{ tenancy.start_date|date:'Y-m-d' }}{% elif form_data %}{{ form_data.start_date }}{% endif %}" 
+                                   {% if not is_edit %}required{% else %}readonly{% endif %}>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="deposit_paid" class="form-label">Deposit Paid (KES) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="deposit_paid" name="deposit_paid" 
+                                   value="{% if is_edit %}{{ tenancy.deposit_paid }}{% elif form_data %}{{ form_data.deposit_paid }}{% endif %}" 
+                                   step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="move_in_condition" class="form-label">Move-in Condition</label>
+                        <textarea class="form-control" id="move_in_condition" name="move_in_condition" rows="3" 
+                                  placeholder="Document the room's condition at move-in...">{% if is_edit %}{{ tenancy.move_in_condition }}{% elif form_data %}{{ form_data.move_in_condition }}{% endif %}</textarea>
+                        <small class="text-muted">Record any existing damages or issues</small>
+                    </div>
+                    
+                    {% if is_edit and tenancy.status == 'active' %}
+                    <hr class="my-4">
+                    <h6 class="mb-3 text-danger">Termination (Optional)</h6>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="terminate_tenancy" onchange="toggleTermination()">
+                        <label class="form-check-label" for="terminate_tenancy">
+                            Terminate this tenancy
+                        </label>
+                    </div>
+                    
+                    <div id="termination-fields" class="d-none">
+                        <input type="hidden" name="status" value="active" id="status_field">
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="end_date" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date">
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="termination_reason" class="form-label">Termination Reason</label>
+                                <select class="form-select" id="termination_reason" name="termination_reason">
+                                    <option value="vacated">Tenant Vacated</option>
+                                    <option value="evicted">Evicted</option>
+                                    <option value="room_switch">Switched to Another Room</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="move_out_condition" class="form-label">Move-out Condition</label>
+                            <textarea class="form-control" id="move_out_condition" name="move_out_condition" rows="3" 
+                                      placeholder="Document the room's condition at move-out..."></textarea>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="deposit_refunded" name="deposit_refunded" 
+                                   onchange="toggleDepositRefund()">
+                            <label class="form-check-label" for="deposit_refunded">
+                                Refund deposit
+                            </label>
+                        </div>
+                        
+                        <div id="deposit-refund-fields" class="d-none">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="deposit_refund_amount" class="form-label">Refund Amount (KES)</label>
+                                    <input type="number" class="form-control" id="deposit_refund_amount" name="deposit_refund_amount" 
+                                           step="0.01" min="0" value="0">
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="deposit_deduction_reason" class="form-label">Deduction Reason (if any)</label>
+                                <textarea class="form-control" id="deposit_deduction_reason" name="deposit_deduction_reason" rows="2" 
+                                          placeholder="Explain any deductions from the deposit..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% if is_edit %}{% url 'tenancy_detail' tenancy.pk %}{% else %}{% url 'tenancy_list' %}{% endif %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>{% if is_edit %}Update{% else %}Create{% endif %} Tenancy
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-info-circle me-2"></i>Guidelines
+                </h5>
+                <ul class="mb-0">
+                    {% if not is_edit %}
+                    <li class="mb-2">Only available rooms are shown in the list</li>
+                    <li class="mb-2">Tenant must not have an active tenancy</li>
+                    <li class="mb-2">Deposit is typically equal to one month's rent</li>
+                    <li class="mb-2">Document room condition to avoid disputes</li>
+                    {% else %}
+                    <li class="mb-2">Cannot change tenant or room after creation</li>
+                    <li class="mb-2">Use termination section to end tenancy</li>
+                    <li class="mb-2">Document move-out condition carefully</li>
+                    <li class="mb-2">Specify any deposit deductions clearly</li>
+                    {% endif %}
+                    <li>First rent due will be automatically created</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function filterRooms() {
+    const apartmentId = document.getElementById('apartment_filter').value;
+    const roomSelect = document.getElementById('room');
+    const options = roomSelect.options;
+    
+    for (let i = 1; i < options.length; i++) {
+        const option = options[i];
+        if (apartmentId === '' || option.dataset.apartment === apartmentId) {
+            option.style.display = '';
+        } else {
+            option.style.display = 'none';
+        }
+    }
+    
+    roomSelect.selectedIndex = 0;
+    document.getElementById('room-info').classList.add('d-none');
+}
+
+function updateRoomInfo() {
+    const roomSelect = document.getElementById('room');
+    const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+    
+    if (selectedOption.value) {
+        const rent = selectedOption.dataset.rent;
+        const deposit = selectedOption.dataset.deposit;
+        
+        document.getElementById('room-details').innerHTML = `
+            <p class="mb-1">Monthly Rent: <strong>KES ${parseFloat(rent).toLocaleString()}</strong></p>
+            <p class="mb-0">Suggested Deposit: <strong>KES ${parseFloat(deposit).toLocaleString()}</strong></p>
+        `;
+        document.getElementById('room-info').classList.remove('d-none');
+        
+        // Auto-fill deposit
+        document.getElementById('deposit_paid').value = deposit;
+    } else {
+        document.getElementById('room-info').classList.add('d-none');
+    }
+}
+
+function toggleTermination() {
+    const checkbox = document.getElementById('terminate_tenancy');
+    const fields = document.getElementById('termination-fields');
+    const statusField = document.getElementById('status_field');
+    
+    if (checkbox.checked) {
+        fields.classList.remove('d-none');
+        statusField.value = 'terminated';
+    } else {
+        fields.classList.add('d-none');
+        statusField.value = 'active';
+    }
+}
+
+function toggleDepositRefund() {
+    const checkbox = document.getElementById('deposit_refunded');
+    const fields = document.getElementById('deposit-refund-fields');
+    
+    if (checkbox.checked) {
+        fields.classList.remove('d-none');
+        // Auto-fill with full deposit
+        const depositPaid = document.getElementById('deposit_paid').value;
+        document.getElementById('deposit_refund_amount').value = depositPaid;
+    } else {
+        fields.classList.add('d-none');
+    }
+}
+</script>
+{% endblock %}

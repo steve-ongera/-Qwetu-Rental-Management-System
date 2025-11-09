@@ -1,0 +1,246 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}All Tenants - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-people me-2"></i>All Tenants
+        </h1>
+        <p class="page-subtitle">Manage all tenant accounts</p>
+    </div>
+    <a href="{% url 'tenant_create' %}" class="btn btn-primary">
+        <i class="bi bi-person-plus me-2"></i>Add New Tenant
+    </a>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ total_tenants }}</h3>
+                        <small>Total Tenants</small>
+                    </div>
+                    <i class="bi bi-people" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ active_tenants }}</h3>
+                        <small>Active</small>
+                    </div>
+                    <i class="bi bi-person-check" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ inactive_tenants }}</h3>
+                        <small>Inactive</small>
+                    </div>
+                    <i class="bi bi-person-x" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                    <option value="archived" {% if status_filter == 'archived' %}selected{% endif %}>Archived</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Apartment</label>
+                <select name="apartment" class="form-select">
+                    <option value="">All Apartments</option>
+                    {% for apartment in apartments %}
+                    <option value="{{ apartment.pk }}" {% if apartment_filter == apartment.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ apartment.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" 
+                       placeholder="Name, phone, or ID..." value="{{ search_query }}">
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-2"></i>Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tenants Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>National ID</th>
+                        <th>Status</th>
+                        <th>Tenancies</th>
+                        <th>Joined</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tenant in tenants %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle bg-primary text-white me-2">
+                                    {{ tenant.first_name.0 }}{{ tenant.last_name.0 }}
+                                </div>
+                                <div>
+                                    <strong>{{ tenant.get_full_name }}</strong>
+                                    {% if tenant.email %}
+                                    <br><small class="text-muted">{{ tenant.email }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ tenant.phone_number }}</td>
+                        <td>{{ tenant.national_id|default:"-" }}</td>
+                        <td>
+                            {% if tenant.user_status == 'active' %}
+                            <span class="badge bg-success">Active</span>
+                            {% elif tenant.user_status == 'inactive' %}
+                            <span class="badge bg-warning">Inactive</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Archived</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ tenant.total_tenancies }} total</span>
+                            {% if tenant.active_tenancy_count > 0 %}
+                            <span class="badge bg-success">{{ tenant.active_tenancy_count }} active</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ tenant.created_at|date:"M d, Y" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'tenant_detail' tenant.pk %}" class="btn btn-outline-primary" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'tenant_edit' tenant.pk %}" class="btn btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% if tenant.active_tenancy_count == 0 %}
+                                <button type="button" class="btn btn-outline-danger" title="Archive" 
+                                        onclick="archiveTenant({{ tenant.pk }}, '{{ tenant.get_full_name }}')">
+                                    <i class="bi bi-archive"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4">
+                            <i class="bi bi-people" style="font-size: 3rem; color: #ccc;"></i>
+                            <h5 class="mt-3">No Tenants Found</h5>
+                            <p class="text-muted">Try adjusting your filters or add a new tenant.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if tenants.has_other_pages %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if tenants.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ tenants.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in tenants.paginator.page_range %}
+        <li class="page-item {% if tenants.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        
+        {% if tenants.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ tenants.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<style>
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+</style>
+
+<script>
+function archiveTenant(pk, name) {
+    if (confirm(`Are you sure you want to archive ${name}? This will mark the tenant as archived.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/tenants/${pk}/delete/`;
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            form.appendChild(csrfToken.cloneNode());
+        } else {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'csrfmiddlewaretoken';
+            input.value = '{{ csrf_token }}';
+            form.appendChild(input);
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

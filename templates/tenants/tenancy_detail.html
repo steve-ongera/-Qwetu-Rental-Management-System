@@ -1,0 +1,341 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Tenancy Detail - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-file-earmark-text me-2"></i>Tenancy Details
+        </h1>
+        <p class="page-subtitle">
+            {{ tenancy.tenant.get_full_name }} - {{ tenancy.room.room_number }}
+        </p>
+    </div>
+    <div class="btn-group">
+        {% if tenancy.status == 'active' %}
+        <a href="{% url 'tenancy_edit' tenancy.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-2"></i>Edit
+        </a>
+        <a href="{% url 'tenancy_terminate' tenancy.pk %}" class="btn btn-danger">
+            <i class="bi bi-x-circle me-2"></i>Terminate
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Status Alert -->
+{% if tenancy.status == 'terminated' %}
+<div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <div>
+        This tenancy was terminated on {{ tenancy.end_date|date:"M d, Y" }}
+        {% if tenancy.termination_reason %}
+        - Reason: {{ tenancy.get_termination_reason_display }}
+        {% endif %}
+    </div>
+</div>
+{% elif tenancy.status == 'active' %}
+<div class="alert alert-success d-flex align-items-center mb-4" role="alert">
+    <i class="bi bi-check-circle-fill me-2"></i>
+    <div>
+        This is an active tenancy since {{ tenancy.start_date|date:"M d, Y" }} ({{ duration_months }} months)
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Tenancy Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Tenancy Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Tenant:</strong>
+                        <p><a href="{% url 'tenant_detail' tenancy.tenant.pk %}">{{ tenancy.tenant.get_full_name }}</a></p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Phone:</strong>
+                        <p>{{ tenancy.tenant.phone_number }}</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Apartment:</strong>
+                        <p><a href="{% url 'apartment_detail' tenancy.apartment.pk %}">{{ tenancy.apartment.name }}</a></p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Room:</strong>
+                        <p><a href="{% url 'room_detail' tenancy.room.pk %}">{{ tenancy.room.room_number }}</a> - {{ tenancy.room.room_type }}</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Start Date:</strong>
+                        <p>{{ tenancy.start_date|date:"M d, Y" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>End Date:</strong>
+                        <p>
+                            {% if tenancy.end_date %}
+                            {{ tenancy.end_date|date:"M d, Y" }}
+                            {% else %}
+                            <span class="text-success">Ongoing</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Monthly Rent:</strong>
+                        <p class="text-primary fs-5">KES {{ tenancy.room.monthly_rent|floatformat:0 }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Duration:</strong>
+                        <p>{{ duration_months }} months ({{ duration_days }} days)</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Deposit Paid:</strong>
+                        <p>KES {{ tenancy.deposit_paid|floatformat:0 }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Deposit Status:</strong>
+                        <p>
+                            {% if tenancy.deposit_refunded %}
+                            <span class="badge bg-success">Refunded - KES {{ tenancy.deposit_refund_amount|floatformat:0 }}</span>
+                            {% else %}
+                            <span class="badge bg-info">Held</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                {% if tenancy.move_in_condition %}
+                <div class="mb-3">
+                    <strong>Move-in Condition:</strong>
+                    <p>{{ tenancy.move_in_condition }}</p>
+                </div>
+                {% endif %}
+                
+                {% if tenancy.move_out_condition %}
+                <div class="mb-0">
+                    <strong>Move-out Condition:</strong>
+                    <p>{{ tenancy.move_out_condition }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Payment Summary -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-cash-stack me-2"></i>Payment Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-4 mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <h4 class="text-primary mb-1">KES {{ total_paid|floatformat:0 }}</h4>
+                            <small class="text-muted">Total Paid</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <h4 class="text-secondary mb-1">KES {{ total_due|floatformat:0 }}</h4>
+                            <small class="text-muted">Total Due</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <h4 class="text-danger mb-1">KES {{ total_balance|floatformat:0 }}</h4>
+                            <small class="text-muted">Balance</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rent Dues -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-calendar-check me-2"></i>Rent Dues</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if rent_dues %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th>Due Date</th>
+                                <th>Amount</th>
+                                <th>Paid</th>
+                                <th>Balance</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for due in rent_dues %}
+                            <tr>
+                                <td>{{ due.month_for|date:"M Y" }}</td>
+                                <td>{{ due.due_date|date:"M d, Y" }}</td>
+                                <td>KES {{ due.amount_due|floatformat:0 }}</td>
+                                <td>KES {{ due.amount_paid|floatformat:0 }}</td>
+                                <td>
+                                    {% if due.balance > 0 %}
+                                    <strong class="text-danger">KES {{ due.balance|floatformat:0 }}</strong>
+                                    {% else %}
+                                    <span class="text-success">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if due.status == 'paid' %}
+                                    <span class="badge bg-success">Paid</span>
+                                    {% elif due.status == 'partially_paid' %}
+                                    <span class="badge bg-warning">Partially Paid</span>
+                                    {% elif due.status == 'overdue' %}
+                                    <span class="badge bg-danger">Overdue</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Unpaid</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <p class="text-muted">No rent dues recorded</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Payment History -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Payment History</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if payments %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>For Month</th>
+                                <th>Method</th>
+                                <th>Transaction ID</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in payments %}
+                            <tr>
+                                <td>{{ payment.payment_date|date:"M d, Y H:i" }}</td>
+                                <td><strong>KES {{ payment.amount|floatformat:0 }}</strong></td>
+                                <td>{{ payment.payment_for_month|date:"M Y" }}</td>
+                                <td>{{ payment.get_payment_method_display }}</td>
+                                <td>{{ payment.mpesa_transaction_id|default:"-" }}</td>
+                                <td>
+                                    {% if payment.status == 'completed' %}
+                                    <span class="badge bg-success">Completed</span>
+                                    {% elif payment.status == 'pending' %}
+                                    <span class="badge bg-warning">Pending</span>
+                                    {% elif payment.status == 'failed' %}
+                                    <span class="badge bg-danger">Failed</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ payment.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <p class="text-muted">No payment history</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Status Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3 pb-3 border-bottom">
+                    <strong>Current Status:</strong>
+                    <p class="mt-2">
+                        {% if tenancy.status == 'active' %}
+                        <span class="badge bg-success fs-6">Active</span>
+                        {% elif tenancy.status == 'terminated' %}
+                        <span class="badge bg-danger fs-6">Terminated</span>
+                        {% elif tenancy.status == 'suspended' %}
+                        <span class="badge bg-warning fs-6">Suspended</span>
+                        {% else %}
+                        <span class="badge bg-info fs-6">{{ tenancy.get_status_display }}</span>
+                        {% endif %}
+                    </p>
+                </div>
+                
+                {% if tenancy.status == 'terminated' and tenancy.deposit_refunded %}
+                <div class="mb-0">
+                    <strong>Deposit Refund:</strong>
+                    <p class="mt-2">
+                        <span class="badge bg-success">KES {{ tenancy.deposit_refund_amount|floatformat:0 }}</span>
+                    </p>
+                    {% if tenancy.deposit_deduction_reason %}
+                    <small class="text-muted">{{ tenancy.deposit_deduction_reason }}</small>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'tenant_detail' tenancy.tenant.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-person me-2"></i>View Tenant
+                    </a>
+                    <a href="{% url 'room_detail' tenancy.room.pk %}" class="btn btn-outline-info">
+                        <i class="bi bi-door-open me-2"></i>View Room
+                    </a>
+                    {% if tenancy.status == 'active' %}
+                    <a href="{% url 'tenancy_edit' tenancy.pk %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-pencil me-2"></i>Edit Tenancy
+                    </a>
+                    <a href="{% url 'tenancy_terminate' tenancy.pk %}" class="btn btn-outline-danger">
+                        <i class="bi bi-x-circle me-2"></i>Terminate Tenancy
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'tenancy_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-2"></i>Back to List
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
