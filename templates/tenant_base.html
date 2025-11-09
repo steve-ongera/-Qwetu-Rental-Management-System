@@ -522,17 +522,26 @@
             </button>
             <div class="user-info dropdown">
                 <div data-bs-toggle="dropdown" aria-expanded="false" class="d-flex align-items-center gap-2">
-                    <div class="user-avatar">TN</div>
+                    <!-- Avatar Circle with User Initials -->
+                    <div class="user-avatar">
+                        {{ request.user.first_name|default:request.user.username|slice:":2"|upper }}
+                    </div>
+
+                    <!-- User Details -->
                     <div class="user-details">
-                        <div class="user-name">Tenant Name</div>
-                        <div class="user-role">Tenant</div>
+                        <div class="user-name">
+                            {{ request.user.get_full_name|default:request.user.username }}
+                        </div>
+                        <div class="user-role">
+                            {{ request.user.user_type|title }}
+                        </div>
                     </div>
                 </div>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i> Profile</a></li>
                     <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i> Settings</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="#"><i class="bi bi-box-arrow-right me-2"></i> Logout</a></li>
+                    <li><a class="dropdown-item" href="{% url 'logout'%}"><i class="bi bi-box-arrow-right me-2"></i> Logout</a></li>
                 </ul>
             </div>
         </div>
