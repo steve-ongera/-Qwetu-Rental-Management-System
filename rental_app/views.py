@@ -206,6 +206,14 @@ def admin_dashboard(request):
     return render(request, 'admin_dashboard.html', context)
 
 
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.utils import timezone
+from django.db.models import Sum, Q
+from decimal import Decimal
+from datetime import timedelta
+
 @login_required
 def tenant_dashboard(request):
     """Tenant dashboard"""
@@ -215,84 +223,178 @@ def tenant_dashboard(request):
     
     # Get active tenancy
     try:
-        active_tenancy = Tenancy.objects.get(
+        active_tenancy = Tenancy.objects.select_related(
+            'room', 
+            'room__room_type', 
+            'apartment'
+        ).get(
             tenant=request.user,
-            status='active'
+            status='active',
+            is_deleted=False
         )
     except Tenancy.DoesNotExist:
         active_tenancy = None
     
-    # Current month
+    # Current month and date
     today = timezone.now().date()
     current_month = today.replace(day=1)
     
-    # Rent dues
+    # Initialize context variables
+    context = {
+        'active_tenancy': active_tenancy,
+        'current_rent_due': None,
+        'rent_dues': [],
+        'payment_history': [],
+        'water_bills': [],
+        'electricity_bills': [],
+        'total_paid_this_year': Decimal('0.00'),
+        'notifications': [],
+        'overdue_count': 0,
+        'pending_water_bills': 0,
+        'pending_electricity_bills': 0,
+        'days_until_due': None,
+        'recent_activities': [],
+    }
+    
+    # If tenant has active tenancy
     if active_tenancy:
         # Current rent due
         try:
             current_rent_due = RentDue.objects.get(
                 tenancy=active_tenancy,
-                month_for=current_month
+                month_for=current_month,
+                is_deleted=False
             )
+            context['current_rent_due'] = current_rent_due
+            
+            # Calculate days until due
+            if current_rent_due.status in ['unpaid', 'partially_paid']:
+                days_diff = (current_rent_due.due_date - today).days
+                context['days_until_due'] = days_diff
         except RentDue.DoesNotExist:
-            current_rent_due = None
+            pass
         
-        # All rent dues
+        # All rent dues (last 6 months)
         rent_dues = RentDue.objects.filter(
-            tenancy=active_tenancy
+            tenancy=active_tenancy,
+            is_deleted=False
         ).order_by('-month_for')[:6]
+        context['rent_dues'] = rent_dues
         
-        # Payment history
+        # Count overdue rent
+        overdue_count = RentDue.objects.filter(
+            tenancy=active_tenancy,
+            status='overdue',
+            is_deleted=False
+        ).count()
+        context['overdue_count'] = overdue_count
+        
+        # Payment history (last 10 payments)
         payment_history = RentPayment.objects.filter(
             tenant=request.user,
-            status='completed'
-        ).order_by('-payment_date')[:10]
+            status='completed',
+            is_deleted=False
+        ).select_related('tenancy', 'tenancy__room').order_by('-payment_date')[:10]
+        context['payment_history'] = payment_history
         
-        # Water bills
+        # Water bills (last 5 months)
         water_bills = WaterBill.objects.filter(
             tenancy=active_tenancy
         ).order_by('-bill_month')[:5]
+        context['water_bills'] = water_bills
         
-        # Electricity bills
+        # Pending water bills
+        pending_water_bills = WaterBill.objects.filter(
+            tenancy=active_tenancy,
+            status='pending'
+        ).count()
+        context['pending_water_bills'] = pending_water_bills
+        
+        # Electricity bills (last 5 months)
         electricity_bills = ElectricityBill.objects.filter(
             tenancy=active_tenancy
         ).order_by('-bill_month')[:5]
+        context['electricity_bills'] = electricity_bills
+        
+        # Pending electricity bills
+        pending_electricity_bills = ElectricityBill.objects.filter(
+            tenancy=active_tenancy,
+            status='pending'
+        ).count()
+        context['pending_electricity_bills'] = pending_electricity_bills
         
         # Total paid this year
         year_start = today.replace(month=1, day=1)
         total_paid_this_year = RentPayment.objects.filter(
             tenant=request.user,
             payment_date__gte=year_start,
-            status='completed'
+            status='completed',
+            is_deleted=False
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        context['total_paid_this_year'] = total_paid_this_year
         
-    else:
-        current_rent_due = None
-        rent_dues = []
-        payment_history = []
-        water_bills = []
-        electricity_bills = []
-        total_paid_this_year = Decimal('0.00')
+        # Recent activities (payments, bills, etc.)
+        recent_activities = []
+        
+        # Recent payments
+        recent_payments = RentPayment.objects.filter(
+            tenant=request.user,
+            is_deleted=False
+        ).order_by('-payment_date')[:3]
+        
+        for payment in recent_payments:
+            recent_activities.append({
+                'type': 'payment',
+                'icon': 'check-lg',
+                'icon_bg': 'success',
+                'title': 'Payment Confirmed',
+                'description': f'Your {payment.payment_for_month.strftime("%B %Y")} rent payment was received - ${payment.amount}',
+                'date': payment.payment_date
+            })
+        
+        # Recent water bills
+        recent_water = WaterBill.objects.filter(
+            tenancy=active_tenancy
+        ).order_by('-bill_month')[:2]
+        
+        for bill in recent_water:
+            recent_activities.append({
+                'type': 'water_bill',
+                'icon': 'droplet',
+                'icon_bg': 'warning' if bill.status == 'pending' else 'success',
+                'title': 'Water Bill Generated' if bill.status == 'pending' else 'Water Bill Paid',
+                'description': f'{bill.bill_month.strftime("%B %Y")} water bill - ${bill.total_amount}',
+                'date': bill.created_at
+            })
+        
+        # Recent electricity bills
+        recent_electricity = ElectricityBill.objects.filter(
+            tenancy=active_tenancy
+        ).order_by('-purchase_date')[:2]
+        
+        for bill in recent_electricity:
+            recent_activities.append({
+                'type': 'electricity',
+                'icon': 'lightning',
+                'icon_bg': 'primary',
+                'title': 'Electricity Token',
+                'description': f'{bill.units_purchased} units purchased - Token: {bill.token_number}',
+                'date': bill.purchase_date
+            })
+        
+        # Sort by date and limit to 5 most recent
+        recent_activities = sorted(recent_activities, key=lambda x: x['date'], reverse=True)[:5]
+        context['recent_activities'] = recent_activities
     
-    # Notifications
+    # Notifications (unread, last 5)
     notifications = Notification.objects.filter(
         user=request.user,
         is_read=False
     ).order_by('-created_at')[:5]
-    
-    context = {
-        'active_tenancy': active_tenancy,
-        'current_rent_due': current_rent_due,
-        'rent_dues': rent_dues,
-        'payment_history': payment_history,
-        'water_bills': water_bills,
-        'electricity_bills': electricity_bills,
-        'total_paid_this_year': total_paid_this_year,
-        'notifications': notifications,
-    }
+    context['notifications'] = notifications
+    context['unread_notifications_count'] = notifications.count()
     
     return render(request, 'tenant_dashboard.html', context)
-
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required

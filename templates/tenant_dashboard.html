@@ -1,520 +1,415 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tenant Dashboard - RentManager</title>
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    
-    <style>
-        :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #34495e;
-            --accent-color: #3498db;
-            --success-color: #48c774;
-            --warning-color: #feca57;
-            --danger-color: #ff6b6b;
-        }
+{% extends 'tenant_base.html' %}
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-            padding-top: 70px;
-        }
+{% load filters %}
 
-        .navbar {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
+{% load static %}
 
-        .navbar-brand {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: white !important;
-        }
+{% block title %}Tenant Dashboard{% endblock %}
 
-        .navbar-brand i {
-            margin-right: 0.5rem;
-        }
+{% block content %}
+<h1 class="page-title">Dashboard Overview</h1>
+<p class="page-subtitle">Welcome back, {{ request.user.get_full_name }}! Here's your tenancy summary.</p>
 
-        .nav-link {
-            color: rgba(255,255,255,0.9) !important;
-            font-weight: 500;
-            transition: color 0.3s;
-        }
-
-        .nav-link:hover {
-            color: white !important;
-        }
-
-        .user-avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--primary-color);
-            font-weight: 600;
-        }
-
-        .container-main {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 15px;
-        }
-
-        .welcome-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 1rem;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        .welcome-card h2 {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-
-        .welcome-card p {
-            font-size: 1.1rem;
-            opacity: 0.95;
-        }
-
-        .info-card {
-            background: white;
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            height: 100%;
-        }
-
-        .info-card-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #f0f0f0;
-        }
-
-        .info-card-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            margin-right: 1rem;
-        }
-
-        .info-card-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--primary-color);
-        }
-
-        .rent-status {
-            padding: 1.5rem;
-            border-radius: 0.5rem;
-            text-align: center;
-            margin-bottom: 1rem;
-        }
-
-        .rent-status.paid {
-            background: rgba(72, 199, 116, 0.1);
-            border: 2px solid var(--success-color);
-        }
-
-        .rent-status.unpaid {
-            background: rgba(255, 107, 107, 0.1);
-            border: 2px solid var(--danger-color);
-        }
-
-        .rent-status.partially {
-            background: rgba(254, 202, 87, 0.1);
-            border: 2px solid var(--warning-color);
-        }
-
-        .rent-status-label {
-            font-size: 0.9rem;
-            color: #7f8c8d;
-            margin-bottom: 0.5rem;
-        }
-
-        .rent-status-amount {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--primary-color);
-        }
-
-        .rent-status-badge {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            border-radius: 2rem;
-            font-weight: 600;
-            margin-top: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        .table-card {
-            background: white;
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 1.5rem;
-        }
-
-        .table thead th {
-            background-color: #f8f9fa;
-            color: var(--primary-color);
-            font-weight: 600;
-            border-bottom: 2px solid #dee2e6;
-            padding: 1rem;
-        }
-
-        .table tbody td {
-            padding: 1rem;
-            vertical-align: middle;
-        }
-
-        .badge {
-            padding: 0.5rem 0.75rem;
-            font-weight: 500;
-            font-size: 0.8rem;
-        }
-
-        .btn-pay {
-            background: linear-gradient(135deg, var(--accent-color) 0%, #2980b9 100%);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .btn-pay:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .stat-item {
-            padding: 1rem;
-            border-radius: 0.5rem;
-            background: #f8f9fa;
-        }
-
-        .stat-label {
-            font-size: 0.85rem;
-            color: #7f8c8d;
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-        }
-
-        @media (max-width: 768px) {
-            .welcome-card h2 {
-                font-size: 1.5rem;
-            }
-
-            .container-main {
-                padding: 1rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg fixed-top">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="#">
-                <i class="bi bi-buildings"></i>
-                RentManager
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#"><i class="bi bi-house-door me-1"></i>Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#"><i class="bi bi-receipt me-1"></i>Payments</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#"><i class="bi bi-bell me-1"></i>Notifications</a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <div class="user-avatar d-inline-flex">{{ user.first_name.0 }}{{ user.last_name.0 }}</div>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>Profile</a></li>
-                            <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i>Settings</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                        </ul>
-                    </li>
-                </ul>
+{% if not active_tenancy %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        You don't have an active tenancy. Please contact your property manager.
+    </div>
+{% else %}
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <!-- Room Info -->
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-house-door"></i>
             </div>
-        </div>
-    </nav>
-
-    <!-- Main Content -->
-    <div class="container-main">
-        <!-- Welcome Card -->
-        <div class="welcome-card">
-            <h2>Welcome, {{ user.get_full_name }}!</h2>
-            <p>Manage your rent payments and view your tenancy information</p>
-        </div>
-
-        {% if not active_tenancy %}
-        <div class="alert alert-warning">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            You don't have an active tenancy. Please contact the administrator.
-        </div>
-        {% else %}
-
-        <!-- Tenancy Information -->
-        <div class="row mb-4">
-            <div class="col-lg-6 mb-3">
-                <div class="info-card">
-                    <div class="info-card-header">
-                        <div class="info-card-icon" style="background: rgba(52, 152, 219, 0.1); color: var(--accent-color);">
-                            <i class="bi bi-door-open"></i>
-                        </div>
-                        <div class="info-card-title">Your Room</div>
-                    </div>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <div class="stat-label">Room Number</div>
-                            <div class="stat-value">{{ active_tenancy.room.room_number }}</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Room Type</div>
-                            <div class="stat-value" style="font-size: 1.2rem;">{{ active_tenancy.room.room_type }}</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Floor</div>
-                            <div class="stat-value">{{ active_tenancy.room.floor_number }}</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Monthly Rent</div>
-                            <div class="stat-value" style="font-size: 1.2rem;">KES {{ active_tenancy.room.monthly_rent|floatformat:0 }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-lg-6 mb-3">
-                <div class="info-card">
-                    <div class="info-card-header">
-                        <div class="info-card-icon" style="background: rgba(72, 199, 116, 0.1); color: var(--success-color);">
-                            <i class="bi bi-calendar-check"></i>
-                        </div>
-                        <div class="info-card-title">Current Rent Status</div>
-                    </div>
-                    {% if current_rent_due %}
-                    <div class="rent-status {% if current_rent_due.status == 'paid' %}paid{% elif current_rent_due.status == 'partially_paid' %}partially{% else %}unpaid{% endif %}">
-                        <div class="rent-status-label">Amount Due</div>
-                        <div class="rent-status-amount">KES {{ current_rent_due.amount_due|floatformat:2 }}</div>
-                        {% if current_rent_due.balance > 0 %}
-                        <div class="text-muted mt-2">Balance: KES {{ current_rent_due.balance|floatformat:2 }}</div>
-                        {% endif %}
-                        <div class="rent-status-badge 
-                            {% if current_rent_due.status == 'paid' %}bg-success{% elif current_rent_due.status == 'partially_paid' %}bg-warning{% else %}bg-danger{% endif %} text-white">
-                            {{ current_rent_due.get_status_display }}
-                        </div>
-                    </div>
-                    {% if current_rent_due.status != 'paid' %}
-                    <div class="text-center mt-3">
-                        <button class="btn btn-pay">
-                            <i class="bi bi-credit-card me-2"></i>Pay Now via M-Pesa
-                        </button>
-                    </div>
-                    {% endif %}
-                    {% else %}
-                    <div class="text-center text-muted py-4">
-                        <i class="bi bi-info-circle" style="font-size: 3rem;"></i>
-                        <p class="mt-2">No rent due information available</p>
-                    </div>
-                    {% endif %}
-                </div>
+            <div class="stat-value">Room {{ active_tenancy.room.room_number }}</div>
+            <div class="stat-label">{{ active_tenancy.room.room_type.get_name_display }}</div>
+            <div class="stat-change positive">
+                <i class="bi bi-check-circle"></i> Active Tenancy
             </div>
         </div>
 
-        <!-- Financial Summary -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="info-card">
-                    <div class="info-card-header">
-                        <div class="info-card-icon" style="background: rgba(254, 202, 87, 0.1); color: var(--warning-color);">
-                            <i class="bi bi-graph-up"></i>
-                        </div>
-                        <div class="info-card-title">Financial Summary</div>
+        <!-- Monthly Rent -->
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="bi bi-calendar-check"></i>
+            </div>
+            <div class="stat-value">KES {{ active_tenancy.room.monthly_rent }}</div>
+            <div class="stat-label">Monthly Rent</div>
+            <div class="stat-change">
+                Due on 3rd of each month
+            </div>
+        </div>
+
+        <!-- Current Rent Due -->
+        <div class="stat-card">
+            {% if current_rent_due %}
+                {% if current_rent_due.status == 'paid' %}
+                    <div class="stat-icon success">
+                        <i class="bi bi-check-circle"></i>
                     </div>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <div class="stat-label">Total Paid This Year</div>
-                            <div class="stat-value">KES {{ total_paid_this_year|floatformat:2 }}</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Deposit Paid</div>
-                            <div class="stat-value">KES {{ active_tenancy.deposit_paid|floatformat:2 }}</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Tenancy Start</div>
-                            <div class="stat-value" style="font-size: 1.2rem;">{{ active_tenancy.start_date|date:"M d, Y" }}</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-label">Status</div>
-                            <div class="stat-value" style="font-size: 1.2rem;">
-                                <span class="badge bg-success">{{ active_tenancy.get_status_display }}</span>
+                    <div class="stat-value">Paid</div>
+                    <div class="stat-label">Current Month Rent</div>
+                    <div class="stat-change positive">
+                        <i class="bi bi-check-lg"></i> Fully paid
+                    </div>
+                {% elif current_rent_due.status == 'overdue' %}
+                    <div class="stat-icon danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-value">KES {{ current_rent_due.balance }}</div>
+                    <div class="stat-label">Overdue Rent</div>
+                    <div class="stat-change negative">
+                        <i class="bi bi-exclamation-circle"></i> Payment overdue
+                    </div>
+                {% else %}
+                    <div class="stat-icon warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-value">KES {{ current_rent_due.balance }}</div>
+                    <div class="stat-label">Rent Due</div>
+                    {% if days_until_due is not None %}
+                        {% if days_until_due > 0 %}
+                            <div class="stat-change">
+                                <i class="bi bi-clock"></i> Due in {{ days_until_due }} day{{ days_until_due|pluralize }}
                             </div>
-                        </div>
-                    </div>
+                        {% elif days_until_due == 0 %}
+                            <div class="stat-change negative">
+                                <i class="bi bi-clock"></i> Due today
+                            </div>
+                        {% else %}
+                            <div class="stat-change negative">
+                                <i class="bi bi-exclamation-circle"></i> Overdue
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                {% endif %}
+            {% else %}
+                <div class="stat-icon success">
+                    <i class="bi bi-info-circle"></i>
                 </div>
-            </div>
+                <div class="stat-value">N/A</div>
+                <div class="stat-label">No Rent Due</div>
+                <div class="stat-change">
+                    Check back later
+                </div>
+            {% endif %}
         </div>
 
-        <!-- Payment History -->
-        <div class="table-card">
-            <h4 class="mb-3">
-                <i class="bi bi-clock-history me-2"></i>Payment History
-            </h4>
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Month For</th>
-                            <th>Amount</th>
-                            <th>Method</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for payment in payment_history %}
-                        <tr>
-                            <td>{{ payment.payment_date|date:"M d, Y" }}</td>
-                            <td>{{ payment.payment_for_month|date:"M Y" }}</td>
-                            <td><strong>KES {{ payment.amount|floatformat:2 }}</strong></td>
-                            <td>{{ payment.get_payment_method_display }}</td>
-                            <td>
-                                <span class="badge bg-success">{{ payment.get_status_display }}</span>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center text-muted">No payment history</td>
-                        </tr>
+        <!-- Pending Bills -->
+        <div class="stat-card">
+            <div class="stat-icon {% if pending_water_bills > 0 or pending_electricity_bills > 0 %}danger{% else %}success{% endif %}">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="stat-value">{{ pending_water_bills|add:pending_electricity_bills }}</div>
+            <div class="stat-label">Pending Bills</div>
+            <div class="stat-change">
+                {% if pending_water_bills > 0 %}Water{% endif %}
+                {% if pending_water_bills > 0 and pending_electricity_bills > 0 %} & {% endif %}
+                {% if pending_electricity_bills > 0 %}Electricity{% endif %}
+                {% if pending_water_bills == 0 and pending_electricity_bills == 0 %}All bills paid{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column -->
+        <div class="col-lg-8">
+            <!-- Recent Activity -->
+            <div class="content-card">
+                <h5 class="mb-3">Recent Activity</h5>
+                {% if recent_activities %}
+                    <div class="mt-4">
+                        {% for activity in recent_activities %}
+                            <div class="d-flex align-items-center mb-3 p-2 {% if not forloop.last %}border-bottom border-secondary{% endif %}">
+                                <div class="bg-{{ activity.icon_bg }} rounded-circle p-2 me-3">
+                                    <i class="bi bi-{{ activity.icon }} text-white"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold">{{ activity.title }}</div>
+                                    <small class="text-muted">{{ activity.description }}</small>
+                                </div>
+                                <div class="ms-auto text-muted">
+                                    <small>{{ activity.date|timesince }} ago</small>
+                                </div>
+                            </div>
                         {% endfor %}
-                    </tbody>
-                </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No recent activity to display.</p>
+                {% endif %}
             </div>
-        </div>
 
-        <!-- Utility Bills -->
-        <div class="row">
-            <div class="col-md-6 mb-4">
-                <div class="table-card">
-                    <h5 class="mb-3">
-                        <i class="bi bi-droplet me-2"></i>Water Bills
-                    </h5>
+            <!-- Payment History -->
+            <div class="content-card mt-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Payment History</h5>
+                    <a href="#" class="btn btn-sm btn-outline-light">View All</a>
+                </div>
+                {% if payment_history %}
                     <div class="table-responsive">
-                        <table class="table table-sm">
+                        <table class="table table-dark table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Month For</th>
+                                    <th>Amount</th>
+                                    <th>Method</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in payment_history %}
+                                    <tr>
+                                        <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+                                        <td>{{ payment.payment_for_month|date:"M Y" }}</td>
+                                        <td>KES {{ payment.amount }}</td>
+                                        <td>
+                                            {% if payment.payment_method == 'mpesa' %}
+                                                <i class="bi bi-phone"></i> M-Pesa
+                                            {% elif payment.payment_method == 'cash' %}
+                                                <i class="bi bi-cash"></i> Cash
+                                            {% else %}
+                                                <i class="bi bi-bank"></i> Bank Transfer
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle"></i> {{ payment.get_status_display }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No payment history available.</p>
+                {% endif %}
+            </div>
+
+            <!-- Utility Bills -->
+            <div class="content-card mt-3">
+                <h5 class="mb-3">Utility Bills</h5>
+                
+                <!-- Water Bills -->
+                <h6 class="text-muted mb-2">
+                    <i class="bi bi-droplet me-2"></i>Water Bills
+                    {% if pending_water_bills > 0 %}
+                        <span class="badge bg-danger ms-2">{{ pending_water_bills }} Pending</span>
+                    {% endif %}
+                </h6>
+                {% if water_bills %}
+                    <div class="table-responsive mb-4">
+                        <table class="table table-dark table-sm">
                             <thead>
                                 <tr>
                                     <th>Month</th>
                                     <th>Units</th>
                                     <th>Amount</th>
+                                    <th>Due Date</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for bill in water_bills %}
-                                <tr>
-                                    <td>{{ bill.bill_month|date:"M Y" }}</td>
-                                    <td>{{ bill.units_consumed|floatformat:1 }}</td>
-                                    <td><strong>KES {{ bill.total_amount|floatformat:2 }}</strong></td>
-                                    <td>
-                                        <span class="badge {% if bill.status == 'paid' %}bg-success{% else %}bg-warning{% endif %}">
-                                            {{ bill.get_status_display }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted">No water bills</td>
-                                </tr>
+                                    <tr>
+                                        <td>{{ bill.bill_month|date:"M Y" }}</td>
+                                        <td>{{ bill.units_consumed }}</td>
+                                        <td>KES {{ bill.total_amount }}</td>
+                                        <td>{{ bill.due_date|date:"M d, Y" }}</td>
+                                        <td>
+                                            {% if bill.status == 'paid' %}
+                                                <span class="badge bg-success">Paid</span>
+                                            {% elif bill.status == 'overdue' %}
+                                                <span class="badge bg-danger">Overdue</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">Pending</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </div>
+                {% else %}
+                    <p class="text-muted small mb-3">No water bills available.</p>
+                {% endif %}
 
-            <div class="col-md-6 mb-4">
-                <div class="table-card">
-                    <h5 class="mb-3">
-                        <i class="bi bi-lightning me-2"></i>Electricity Bills
-                    </h5>
+                <!-- Electricity Bills -->
+                <h6 class="text-muted mb-2">
+                    <i class="bi bi-lightning me-2"></i>Electricity Bills
+                </h6>
+                {% if electricity_bills %}
                     <div class="table-responsive">
-                        <table class="table table-sm">
+                        <table class="table table-dark table-sm">
                             <thead>
                                 <tr>
                                     <th>Month</th>
                                     <th>Units</th>
                                     <th>Amount</th>
+                                    <th>Token Number</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for bill in electricity_bills %}
-                                <tr>
-                                    <td>{{ bill.bill_month|date:"M Y" }}</td>
-                                    <td>{{ bill.units_purchased|floatformat:1 }}</td>
-                                    <td><strong>KES {{ bill.amount|floatformat:2 }}</strong></td>
-                                    <td>
-                                        <span class="badge bg-success">{{ bill.get_status_display }}</span>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted">No electricity bills</td>
-                                </tr>
+                                    <tr>
+                                        <td>{{ bill.bill_month|date:"M Y" }}</td>
+                                        <td>{{ bill.units_purchased }}</td>
+                                        <td>KES {{ bill.amount }}</td>
+                                        <td><code>{{ bill.token_number }}</code></td>
+                                        <td>
+                                            {% if bill.status == 'paid' %}
+                                                <span class="badge bg-success">Paid</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">{{ bill.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
+                {% else %}
+                    <p class="text-muted small">No electricity bills available.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="content-card">
+                <h5 class="mb-3">Quick Actions</h5>
+                <div class="d-grid gap-2">
+                    <a href="#" class="btn btn-primary">
+                        <i class="bi bi-credit-card me-2"></i> Pay Rent Now
+                    </a>
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="bi bi-droplet me-2"></i> View Water Bills
+                    </a>
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="bi bi-lightning me-2"></i> View Electricity
+                    </a>
+                    <a href="#" class="btn btn-outline-light">
+                        <i class="bi bi-exclamation-circle me-2"></i> Report Issue
+                    </a>
+                </div>
+            </div>
+
+            <!-- Room Details -->
+            <div class="content-card mt-3">
+                <h5 class="mb-3">Room Details</h5>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Room Number:</span>
+                    <span class="fw-semibold">{{ active_tenancy.room.room_number }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Room Type:</span>
+                    <span class="fw-semibold">{{ active_tenancy.room.room_type.get_name_display }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Floor:</span>
+                    <span class="fw-semibold">{{ active_tenancy.room.floor_number|ordinal }} Floor</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Balcony:</span>
+                    <span class="fw-semibold">
+                        {% if active_tenancy.room.has_balcony %}
+                            <i class="bi bi-check-circle text-success"></i> Yes
+                        {% else %}
+                            <i class="bi bi-x-circle text-danger"></i> No
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Kitchen Unit:</span>
+                    <span class="fw-semibold">
+                        {% if active_tenancy.room.has_kitchen_unit %}
+                            <i class="bi bi-check-circle text-success"></i> Yes
+                        {% else %}
+                            <i class="bi bi-x-circle text-danger"></i> No
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Monthly Rent:</span>
+                    <span class="fw-semibold">KES {{ active_tenancy.room.monthly_rent }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Tenancy Start:</span>
+                    <span class="fw-semibold">{{ active_tenancy.start_date|date:"M d, Y" }}</span>
+                </div>
+            </div>
+
+            <!-- Deposit Info -->
+            <div class="content-card mt-3">
+                <h5 class="mb-3">Deposit Information</h5>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Deposit Paid:</span>
+                    <span class="fw-semibold">KES {{ active_tenancy.deposit_paid }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Status:</span>
+                    <span class="fw-semibold">
+                        {% if active_tenancy.deposit_refunded %}
+                            <span class="badge bg-success">Refunded</span>
+                        {% else %}
+                            <span class="badge bg-primary">Held</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Year Summary -->
+            <div class="content-card mt-3">
+                <h5 class="mb-3">Year Summary</h5>
+                <div class="text-center">
+                    <div class="stat-value">KES {{ total_paid_this_year }}</div>
+                    <div class="stat-label">Total Paid in {{ request.user|date:"Y"|default:"2024" }}</div>
+                    <small class="text-muted d-block mt-2">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Rent payments only
+                    </small>
                 </div>
             </div>
         </div>
-        {% endif %}
     </div>
+{% endif %}
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .alert {
+        background-color: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        color: var(--warning-color);
+        border-radius: 0.75rem;
+        padding: 1rem;
+    }
+
+    .table-dark {
+        --bs-table-bg: transparent;
+        --bs-table-border-color: var(--border-color);
+    }
+
+    .table-dark thead {
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .table-dark tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.03);
+    }
+
+    code {
+        background-color: rgba(99, 102, 241, 0.1);
+        color: var(--accent-color);
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+        font-size: 0.85em;
+    }
+</style>
+{% endblock %}
