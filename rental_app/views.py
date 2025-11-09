@@ -2694,7 +2694,6 @@ def deposit_info(request):
     return render(request, 'tenant/deposit_info.html', context)
 
 
-# ============= PAYMENTS SECTION =============
 
 # views.py
 
@@ -2703,20 +2702,260 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.db import transaction
+from django.conf import settings
 from decimal import Decimal
 import json
+import requests
+import base64
+from datetime import datetime
 
 from .models import Tenancy, RentDue, RentPayment
-from utils.mpesa import MpesaClient
-from utils.email_utils import send_payment_receipt
 
+# ============= M-PESA INTEGRATION =============
+
+def get_mpesa_access_token():
+    """Get M-Pesa OAuth access token"""
+    try:
+        consumer_key = settings.MPESA_CONSUMER_KEY
+        consumer_secret = settings.MPESA_CONSUMER_SECRET
+        api_url = settings.MPESA_API_URL
+        
+        # Create credentials
+        credentials = f"{consumer_key}:{consumer_secret}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+        
+        headers = {
+            'Authorization': f'Basic {encoded_credentials}',
+            'Content-Type': 'application/json'
+        }
+        
+        response = requests.get(
+            f'{api_url}/oauth/v1/generate?grant_type=client_credentials',
+            headers=headers,
+            timeout=30
+        )
+        
+        print(f"Access Token Response Status: {response.status_code}")
+        print(f"Access Token Response: {response.text}")
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result.get('access_token')
+        else:
+            print(f"Failed to get access token: {response.text}")
+            return None
+            
+    except Exception as e:
+        print(f"Error getting access token: {str(e)}")
+        return None
+
+
+def format_phone_number(phone):
+    """Format phone number to 254XXXXXXXXX"""
+    # Remove any spaces or special characters
+    phone = ''.join(filter(str.isdigit, phone))
+    
+    # Convert 07XXXXXXXX to 254XXXXXXXXX
+    if phone.startswith('0'):
+        phone = '254' + phone[1:]
+    
+    # If it's just 9 digits starting with 7 or 1, add 254
+    if len(phone) == 9 and phone[0] in ['7', '1']:
+        phone = '254' + phone
+    
+    # Ensure it starts with 254
+    if not phone.startswith('254'):
+        if len(phone) == 9:
+            phone = '254' + phone
+        else:
+            phone = '254' + phone
+    
+    return phone
+
+
+def mpesa_stk_push(phone_number, amount, account_reference, transaction_desc):
+    """Initiate M-Pesa STK Push"""
+    try:
+        # Get access token
+        access_token = get_mpesa_access_token()
+        if not access_token:
+            return {
+                'success': False,
+                'error': 'Failed to authenticate with M-Pesa. Please try again.'
+            }
+        
+        # Format phone number
+        phone_number = format_phone_number(phone_number)
+        print(f"Formatted phone number: {phone_number}")
+        
+        # Get settings
+        business_shortcode = settings.MPESA_SHORTCODE
+        passkey = settings.MPESA_PASSKEY
+        api_url = settings.MPESA_API_URL
+        callback_url = settings.MPESA_CALLBACK_URL
+        
+        # Generate timestamp
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        
+        # Generate password
+        password_str = f"{business_shortcode}{passkey}{timestamp}"
+        password = base64.b64encode(password_str.encode()).decode()
+        
+        # Prepare request
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            'BusinessShortCode': business_shortcode,
+            'Password': password,
+            'Timestamp': timestamp,
+            'TransactionType': 'CustomerPayBillOnline',
+            'Amount': int(amount),
+            'PartyA': phone_number,
+            'PartyB': business_shortcode,
+            'PhoneNumber': phone_number,
+            'CallBackURL': callback_url,
+            'AccountReference': account_reference,
+            'TransactionDesc': transaction_desc
+        }
+        
+        print(f"STK Push Payload: {json.dumps(payload, indent=2)}")
+        
+        # Make request
+        response = requests.post(
+            f'{api_url}/mpesa/stkpush/v1/processrequest',
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+        
+        print(f"STK Push Response Status: {response.status_code}")
+        print(f"STK Push Response: {response.text}")
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            if result.get('ResponseCode') == '0':
+                return {
+                    'success': True,
+                    'checkout_request_id': result.get('CheckoutRequestID'),
+                    'merchant_request_id': result.get('MerchantRequestID'),
+                    'message': result.get('CustomerMessage', 'STK Push sent successfully')
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': result.get('errorMessage', result.get('CustomerMessage', 'STK Push failed'))
+                }
+        else:
+            error_data = response.json() if response.text else {}
+            return {
+                'success': False,
+                'error': error_data.get('errorMessage', f'Request failed with status {response.status_code}')
+            }
+            
+    except requests.exceptions.Timeout:
+        return {
+            'success': False,
+            'error': 'Request timeout. Please try again.'
+        }
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {str(e)}")
+        return {
+            'success': False,
+            'error': 'Network error. Please check your connection and try again.'
+        }
+    except Exception as e:
+        print(f"STK Push error: {str(e)}")
+        return {
+            'success': False,
+            'error': f'Payment initiation failed: {str(e)}'
+        }
+
+
+def mpesa_check_status(checkout_request_id):
+    """Check M-Pesa transaction status"""
+    try:
+        # Get access token
+        access_token = get_mpesa_access_token()
+        if not access_token:
+            return {
+                'success': False,
+                'error': 'Failed to authenticate with M-Pesa'
+            }
+        
+        # Get settings
+        business_shortcode = settings.MPESA_SHORTCODE
+        passkey = settings.MPESA_PASSKEY
+        api_url = settings.MPESA_API_URL
+        
+        # Generate timestamp
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        
+        # Generate password
+        password_str = f"{business_shortcode}{passkey}{timestamp}"
+        password = base64.b64encode(password_str.encode()).decode()
+        
+        # Prepare request
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            'BusinessShortCode': business_shortcode,
+            'Password': password,
+            'Timestamp': timestamp,
+            'CheckoutRequestID': checkout_request_id
+        }
+        
+        # Make request
+        response = requests.post(
+            f'{api_url}/mpesa/stkpushquery/v1/query',
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+        
+        print(f"Status Check Response: {response.text}")
+        
+        if response.status_code == 200:
+            result = response.json()
+            return {
+                'success': True,
+                'result_code': result.get('ResultCode'),
+                'result_desc': result.get('ResultDesc'),
+                'data': result
+            }
+        else:
+            return {
+                'success': False,
+                'error': 'Status check failed'
+            }
+            
+    except Exception as e:
+        print(f"Status check error: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
+# ============= PAYMENT VIEWS =============
 
 @login_required
-@tenant_required
 def pay_rent(request):
     """Pay rent via M-Pesa or record payment"""
+    # Check if user is a tenant
+    if request.user.user_type != 'tenant':
+        messages.error(request, 'Access denied. This page is for tenants only.')
+        return redirect('home')
+    
     try:
         active_tenancy = Tenancy.objects.select_related(
             'room', 'apartment'
@@ -2730,8 +2969,6 @@ def pay_rent(request):
         return redirect('tenant_dashboard')
     
     # Get unpaid/partially paid rent dues
-    today = timezone.now().date()
-    
     unpaid_dues = RentDue.objects.filter(
         tenancy=active_tenancy,
         status__in=['unpaid', 'partially_paid', 'overdue'],
@@ -2739,11 +2976,27 @@ def pay_rent(request):
     ).order_by('due_date')
     
     if request.method == 'POST':
-        payment_method = request.POST.get('payment_method')
+        # Check if it's an AJAX request - multiple ways to detect
+        is_ajax = (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+            request.headers.get('Accept') == 'application/json' or
+            'application/json' in request.headers.get('Accept', '')
+        )
         
-        if payment_method == 'mpesa':
+        print(f"=== Payment Request ===")
+        print(f"Is AJAX: {is_ajax}")
+        print(f"POST data: {request.POST}")
+        print(f"Content-Type: {request.content_type}")
+        
+        # For AJAX requests, directly handle M-Pesa
+        if is_ajax:
             return handle_mpesa_payment(request, active_tenancy)
-        elif payment_method == 'bank_transfer':
+        
+        # For regular form submissions
+        payment_method = request.POST.get('payment_method')
+        print(f"Payment Method: {payment_method}")
+        
+        if payment_method == 'bank_transfer':
             return handle_bank_transfer(request, active_tenancy)
         elif payment_method == 'cash':
             messages.info(request, 'Please visit the office to complete your cash payment.')
@@ -2758,24 +3011,35 @@ def pay_rent(request):
 
 
 def handle_mpesa_payment(request, active_tenancy):
-    """Handle M-Pesa STK Push payment"""
+    """Handle M-Pesa STK Push payment - returns JSON"""
     mpesa_phone = request.POST.get('mpesa_phone', '').strip()
     rent_due_id = request.POST.get('rent_due')
     amount = request.POST.get('amount')
     
+    print(f"=== M-Pesa Payment Request ===")
+    print(f"Phone: {mpesa_phone}")
+    print(f"Rent Due ID: {rent_due_id}")
+    print(f"Amount: {amount}")
+    
     # Validation
     if not all([mpesa_phone, rent_due_id, amount]):
-        messages.error(request, 'Please fill in all required fields.')
-        return redirect('pay_rent')
+        return JsonResponse({
+            'success': False,
+            'error': 'Please fill in all required fields.'
+        })
     
     try:
         amount = Decimal(amount)
         if amount <= 0:
-            messages.error(request, 'Invalid payment amount.')
-            return redirect('pay_rent')
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid payment amount.'
+            })
     except:
-        messages.error(request, 'Invalid payment amount.')
-        return redirect('pay_rent')
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid payment amount.'
+        })
     
     # Get rent due
     try:
@@ -2785,41 +3049,53 @@ def handle_mpesa_payment(request, active_tenancy):
             is_deleted=False
         )
     except RentDue.DoesNotExist:
-        messages.error(request, 'Invalid rent due selected.')
-        return redirect('pay_rent')
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid rent due selected.'
+        })
     
     # Check if amount exceeds balance
     if amount > rent_due.balance:
-        messages.error(request, f'Amount cannot exceed balance of ${rent_due.balance}')
-        return redirect('pay_rent')
+        return JsonResponse({
+            'success': False,
+            'error': f'Amount cannot exceed balance of KES {rent_due.balance}'
+        })
     
     # Create pending payment record
-    payment = RentPayment.objects.create(
-        tenancy=active_tenancy,
-        tenant=request.user,
-        apartment=active_tenancy.apartment,
-        amount=amount,
-        payment_method='mpesa',
-        mpesa_phone_number=mpesa_phone,
-        payment_for_month=rent_due.month_for,
-        status='pending'
-    )
+    try:
+        payment = RentPayment.objects.create(
+            tenancy=active_tenancy,
+            tenant=request.user,
+            apartment=active_tenancy.apartment,
+            amount=amount,
+            payment_method='mpesa',
+            mpesa_phone_number=mpesa_phone,
+            payment_for_month=rent_due.month_for,
+            status='pending'
+        )
+        print(f"Payment record created: ID {payment.id}")
+    except Exception as e:
+        print(f"Error creating payment: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Error creating payment record: {str(e)}'
+        })
     
     # Initiate M-Pesa STK Push
-    mpesa_client = MpesaClient()
-    result = mpesa_client.stk_push(
+    result = mpesa_stk_push(
         phone_number=mpesa_phone,
         amount=amount,
         account_reference=f"RENT-{active_tenancy.room.room_number}",
         transaction_desc=f"Rent payment for {rent_due.month_for.strftime('%B %Y')}"
     )
     
+    print(f"M-Pesa Result: {result}")
+    
     if result['success']:
         # Store checkout request ID for status checking
         payment.mpesa_transaction_id = result['checkout_request_id']
         payment.save()
         
-        # Return JSON response with checkout request ID
         return JsonResponse({
             'success': True,
             'message': 'STK Push sent to your phone. Please enter your M-Pesa PIN.',
@@ -2838,16 +3114,19 @@ def handle_mpesa_payment(request, active_tenancy):
 
 
 @login_required
-@tenant_required
+@require_http_methods(["GET"])
 def check_payment_status(request, payment_id):
-    """Check M-Pesa payment status"""
+    """Check M-Pesa payment status - returns JSON"""
     try:
         payment = RentPayment.objects.get(
             id=payment_id,
             tenant=request.user
         )
     except RentPayment.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Payment not found'})
+        return JsonResponse({
+            'success': False,
+            'error': 'Payment not found'
+        })
     
     if payment.status != 'pending':
         return JsonResponse({
@@ -2857,43 +3136,47 @@ def check_payment_status(request, payment_id):
         })
     
     # Check with M-Pesa
-    mpesa_client = MpesaClient()
-    result = mpesa_client.check_transaction_status(payment.mpesa_transaction_id)
+    result = mpesa_check_status(payment.mpesa_transaction_id)
     
     if result['success']:
-        result_code = result.get('result_code')
+        result_code = str(result.get('result_code'))
         
         if result_code == '0':
             # Payment successful
-            with transaction.atomic():
-                payment.status = 'completed'
-                payment.payment_date = timezone.now()
-                payment.save()
+            try:
+                with transaction.atomic():
+                    payment.status = 'completed'
+                    payment.payment_date = timezone.now()
+                    payment.save()
+                    
+                    # Update rent due
+                    rent_due = RentDue.objects.select_for_update().get(
+                        tenancy=payment.tenancy,
+                        month_for=payment.payment_for_month
+                    )
+                    rent_due.amount_paid += payment.amount
+                    rent_due.balance = rent_due.amount_due - rent_due.amount_paid
+                    
+                    if rent_due.balance <= 0:
+                        rent_due.status = 'paid'
+                        rent_due.balance = Decimal('0.00')
+                    elif rent_due.amount_paid > 0:
+                        rent_due.status = 'partially_paid'
+                    
+                    rent_due.save()
                 
-                # Update rent due
-                rent_due = RentDue.objects.get(
-                    tenancy=payment.tenancy,
-                    month_for=payment.payment_for_month
-                )
-                rent_due.amount_paid += payment.amount
-                rent_due.balance = rent_due.amount_due - rent_due.amount_paid
+                return JsonResponse({
+                    'success': True,
+                    'status': 'completed',
+                    'message': 'Payment completed successfully!'
+                })
+            except Exception as e:
+                print(f"Error updating payment: {str(e)}")
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Error updating payment: {str(e)}'
+                })
                 
-                if rent_due.balance <= 0:
-                    rent_due.status = 'paid'
-                    rent_due.balance = 0
-                elif rent_due.amount_paid > 0:
-                    rent_due.status = 'partially_paid'
-                
-                rent_due.save()
-                
-                # Send receipt email
-                send_payment_receipt(payment)
-            
-            return JsonResponse({
-                'success': True,
-                'status': 'completed',
-                'message': 'Payment completed successfully!'
-            })
         elif result_code == '1032':
             # User cancelled
             payment.status = 'failed'
@@ -2904,6 +3187,17 @@ def check_payment_status(request, payment_id):
                 'success': True,
                 'status': 'failed',
                 'message': 'Payment was cancelled'
+            })
+        elif result_code == '1':
+            # Insufficient funds
+            payment.status = 'failed'
+            payment.notes = 'Insufficient funds'
+            payment.save()
+            
+            return JsonResponse({
+                'success': True,
+                'status': 'failed',
+                'message': 'Insufficient funds in M-Pesa account'
             })
         else:
             # Still pending or other status
@@ -2928,6 +3222,10 @@ def handle_bank_transfer(request, active_tenancy):
         messages.error(request, 'Please provide transaction reference.')
         return redirect('pay_rent')
     
+    if not rent_due_id:
+        messages.error(request, 'Please select the month to pay for.')
+        return redirect('pay_rent')
+    
     try:
         rent_due = RentDue.objects.get(
             id=rent_due_id,
@@ -2949,73 +3247,86 @@ def handle_bank_transfer(request, active_tenancy):
         notes=f'Bank transfer reference: {transaction_ref}'
     )
     
-    messages.success(request, 'Payment details submitted. Admin will verify and confirm.')
+    messages.success(request, 'Payment details submitted. Admin will verify and confirm within 24 hours.')
     return redirect('tenant_dashboard')
 
 
 @csrf_exempt
+@require_http_methods(["POST"])
 def mpesa_callback(request):
     """M-Pesa callback endpoint"""
-    if request.method == 'POST':
+    try:
+        data = json.loads(request.body)
+        
+        print(f"=== M-Pesa Callback Received ===")
+        print(f"Callback Data: {json.dumps(data, indent=2)}")
+        
+        # Extract callback data
+        body = data.get('Body', {}).get('stkCallback', {})
+        checkout_request_id = body.get('CheckoutRequestID')
+        result_code = body.get('ResultCode')
+        
+        print(f"Checkout Request ID: {checkout_request_id}")
+        print(f"Result Code: {result_code}")
+        
+        # Find payment
         try:
-            data = json.loads(request.body)
+            payment = RentPayment.objects.get(
+                mpesa_transaction_id=checkout_request_id
+            )
+            print(f"Payment found: ID {payment.id}")
+        except RentPayment.DoesNotExist:
+            print(f"Payment not found for checkout request: {checkout_request_id}")
+            return JsonResponse({'ResultCode': 0, 'ResultDesc': 'Success'})
+        
+        if result_code == 0:
+            # Payment successful
+            callback_metadata = body.get('CallbackMetadata', {}).get('Item', [])
+            mpesa_receipt = next(
+                (item['Value'] for item in callback_metadata if item['Name'] == 'MpesaReceiptNumber'),
+                None
+            )
             
-            # Extract callback data
-            body = data.get('Body', {}).get('stkCallback', {})
-            checkout_request_id = body.get('CheckoutRequestID')
-            result_code = body.get('ResultCode')
+            print(f"M-Pesa Receipt: {mpesa_receipt}")
             
-            # Find payment
-            try:
-                payment = RentPayment.objects.get(
-                    mpesa_transaction_id=checkout_request_id
-                )
-            except RentPayment.DoesNotExist:
-                return JsonResponse({'ResultCode': 0, 'ResultDesc': 'Success'})
-            
-            if result_code == 0:
-                # Payment successful
-                callback_metadata = body.get('CallbackMetadata', {}).get('Item', [])
-                mpesa_receipt = next(
-                    (item['Value'] for item in callback_metadata if item['Name'] == 'MpesaReceiptNumber'),
-                    None
-                )
-                
-                with transaction.atomic():
-                    payment.status = 'completed'
+            with transaction.atomic():
+                payment.status = 'completed'
+                if mpesa_receipt:
                     payment.mpesa_transaction_id = mpesa_receipt
-                    payment.payment_date = timezone.now()
-                    payment.save()
-                    
-                    # Update rent due
-                    rent_due = RentDue.objects.get(
-                        tenancy=payment.tenancy,
-                        month_for=payment.payment_for_month
-                    )
-                    rent_due.amount_paid += payment.amount
-                    rent_due.balance = rent_due.amount_due - rent_due.amount_paid
-                    
-                    if rent_due.balance <= 0:
-                        rent_due.status = 'paid'
-                        rent_due.balance = 0
-                    elif rent_due.amount_paid > 0:
-                        rent_due.status = 'partially_paid'
-                    
-                    rent_due.save()
-                    
-                    # Send receipt
-                    send_payment_receipt(payment)
-            else:
-                # Payment failed
-                payment.status = 'failed'
-                payment.notes = body.get('ResultDesc', 'Payment failed')
+                payment.payment_date = timezone.now()
                 payment.save()
+                
+                print(f"Payment marked as completed")
+                
+                # Update rent due
+                rent_due = RentDue.objects.select_for_update().get(
+                    tenancy=payment.tenancy,
+                    month_for=payment.payment_for_month
+                )
+                rent_due.amount_paid += payment.amount
+                rent_due.balance = rent_due.amount_due - rent_due.amount_paid
+                
+                if rent_due.balance <= 0:
+                    rent_due.status = 'paid'
+                    rent_due.balance = Decimal('0.00')
+                elif rent_due.amount_paid > 0:
+                    rent_due.status = 'partially_paid'
+                
+                rent_due.save()
+                
+                print(f"Rent due updated: Status {rent_due.status}, Balance {rent_due.balance}")
+        else:
+            # Payment failed
+            payment.status = 'failed'
+            payment.notes = body.get('ResultDesc', 'Payment failed')
+            payment.save()
             
-        except Exception as e:
-            print(f"Callback error: {str(e)}")
+            print(f"Payment marked as failed: {payment.notes}")
+        
+    except Exception as e:
+        print(f"Callback error: {str(e)}")
     
     return JsonResponse({'ResultCode': 0, 'ResultDesc': 'Success'})
-
 
 @login_required
 @tenant_required
