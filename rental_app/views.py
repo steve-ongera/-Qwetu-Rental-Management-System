@@ -2565,3 +2565,545 @@ def update_rent_due_after_payment(payment):
         
     except Exception as e:
         print(f"Error updating rent due: {str(e)}")
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.utils import timezone
+from django.db.models import Sum, Q
+from decimal import Decimal
+from datetime import timedelta
+from .models import (
+    Tenancy, RentDue, RentPayment, WaterBill, 
+    ElectricityBill, PaymentReport, Notification
+)
+
+# Helper decorator
+def tenant_required(view_func):
+    """Decorator to ensure user is a tenant"""
+    def wrapper(request, *args, **kwargs):
+        if request.user.user_type != 'tenant':
+            messages.error(request, 'You do not have permission to access this page.')
+            return redirect('admin_dashboard')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+# ============= MY TENANCY SECTION =============
+
+@login_required
+@tenant_required
+def my_room(request):
+    """Display tenant's current room details"""
+    try:
+        active_tenancy = Tenancy.objects.select_related(
+            'room', 'room__room_type', 'apartment'
+        ).get(
+            tenant=request.user,
+            status='active',
+            is_deleted=False
+        )
+    except Tenancy.DoesNotExist:
+        messages.warning(request, 'You do not have an active tenancy.')
+        return redirect('tenant_dashboard')
+    
+    context = {
+        'active_tenancy': active_tenancy,
+        'room': active_tenancy.room,
+        'apartment': active_tenancy.apartment,
+    }
+    
+    return render(request, 'tenant/my_room.html', context)
+
+
+@login_required
+@tenant_required
+def tenancy_details(request):
+    """Display tenant's tenancy history and details"""
+    # Active tenancy
+    active_tenancy = Tenancy.objects.select_related(
+        'room', 'room__room_type', 'apartment'
+    ).filter(
+        tenant=request.user,
+        status='active',
+        is_deleted=False
+    ).first()
+    
+    # All tenancies (history)
+    tenancy_history = Tenancy.objects.select_related(
+        'room', 'room__room_type', 'apartment'
+    ).filter(
+        tenant=request.user,
+        is_deleted=False
+    ).exclude(status='active').order_by('-start_date')
+    
+    context = {
+        'active_tenancy': active_tenancy,
+        'tenancy_history': tenancy_history,
+    }
+    
+    return render(request, 'tenant/tenancy_details.html', context)
+
+
+@login_required
+@tenant_required
+def deposit_info(request):
+    """Display tenant's deposit information"""
+    active_tenancy = Tenancy.objects.select_related(
+        'room', 'apartment'
+    ).filter(
+        tenant=request.user,
+        status='active',
+        is_deleted=False
+    ).first()
+    
+    # All tenancies with deposit info
+    all_tenancies = Tenancy.objects.select_related(
+        'room', 'apartment'
+    ).filter(
+        tenant=request.user,
+        is_deleted=False
+    ).order_by('-start_date')
+    
+    context = {
+        'active_tenancy': active_tenancy,
+        'all_tenancies': all_tenancies,
+    }
+    
+    return render(request, 'tenant/deposit_info.html', context)
+
+
+# ============= PAYMENTS SECTION =============
+
+@login_required
+@tenant_required
+def pay_rent(request):
+    """Pay rent via M-Pesa or record payment"""
+    try:
+        active_tenancy = Tenancy.objects.select_related(
+            'room', 'apartment'
+        ).get(
+            tenant=request.user,
+            status='active',
+            is_deleted=False
+        )
+    except Tenancy.DoesNotExist:
+        messages.warning(request, 'You do not have an active tenancy.')
+        return redirect('tenant_dashboard')
+    
+    # Get unpaid/partially paid rent dues
+    today = timezone.now().date()
+    current_month = today.replace(day=1)
+    
+    unpaid_dues = RentDue.objects.filter(
+        tenancy=active_tenancy,
+        status__in=['unpaid', 'partially_paid', 'overdue'],
+        is_deleted=False
+    ).order_by('due_date')
+    
+    if request.method == 'POST':
+        # Handle payment submission
+        # This would integrate with M-Pesa STK Push
+        pass
+    
+    context = {
+        'active_tenancy': active_tenancy,
+        'unpaid_dues': unpaid_dues,
+    }
+    
+    return render(request, 'tenant/pay_rent.html', context)
+
+
+@login_required
+@tenant_required
+def rent_due(request):
+    """Display all rent dues"""
+    try:
+        active_tenancy = Tenancy.objects.select_related(
+            'room', 'apartment'
+        ).get(
+            tenant=request.user,
+            status='active',
+            is_deleted=False
+        )
+    except Tenancy.DoesNotExist:
+        messages.warning(request, 'You do not have an active tenancy.')
+        return redirect('tenant_dashboard')
+    
+    # All rent dues
+    rent_dues = RentDue.objects.filter(
+        tenancy=active_tenancy,
+        is_deleted=False
+    ).order_by('-month_for')
+    
+    # Current rent due
+    today = timezone.now().date()
+    current_month = today.replace(day=1)
+    
+    current_due = rent_dues.filter(month_for=current_month).first()
+    
+    # Statistics
+    total_paid = rent_dues.filter(status='paid').count()
+    total_unpaid = rent_dues.filter(status__in=['unpaid', 'overdue']).count()
+    
+    context = {
+        'active_tenancy': active_tenancy,
+        'rent_dues': rent_dues,
+        'current_due': current_due,
+        'total_paid': total_paid,
+        'total_unpaid': total_unpaid,
+    }
+    
+    return render(request, 'tenant/rent_due.html', context)
+
+
+@login_required
+@tenant_required
+def payment_history(request):
+    """Display tenant's payment history"""
+    payments = RentPayment.objects.filter(
+        tenant=request.user,
+        is_deleted=False
+    ).select_related('tenancy', 'tenancy__room', 'apartment').order_by('-payment_date')
+    
+    # Statistics
+    total_payments = payments.filter(status='completed').count()
+    total_amount_paid = payments.filter(status='completed').aggregate(
+        total=Sum('amount')
+    )['total'] or Decimal('0.00')
+    
+    # This year
+    today = timezone.now().date()
+    year_start = today.replace(month=1, day=1)
+    this_year_payments = payments.filter(
+        payment_date__gte=year_start,
+        status='completed'
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    
+    context = {
+        'payments': payments,
+        'total_payments': total_payments,
+        'total_amount_paid': total_amount_paid,
+        'this_year_payments': this_year_payments,
+    }
+    
+    return render(request, 'tenant/payment_history.html', context)
+
+
+@login_required
+@tenant_required
+def report_payment_issue(request):
+    """Report inability to pay rent on time"""
+    try:
+        active_tenancy = Tenancy.objects.select_related(
+            'room', 'apartment'
+        ).get(
+            tenant=request.user,
+            status='active',
+            is_deleted=False
+        )
+    except Tenancy.DoesNotExist:
+        messages.warning(request, 'You do not have an active tenancy.')
+        return redirect('tenant_dashboard')
+    
+    # Get unpaid rent dues
+    unpaid_dues = RentDue.objects.filter(
+        tenancy=active_tenancy,
+        status__in=['unpaid', 'partially_paid', 'overdue'],
+        is_deleted=False
+    ).order_by('due_date')
+    
+    if request.method == 'POST':
+        rent_due_id = request.POST.get('rent_due')
+        reason = request.POST.get('reason')
+        expected_date = request.POST.get('expected_payment_date')
+        
+        if rent_due_id and reason:
+            rent_due = get_object_or_404(RentDue, id=rent_due_id, tenancy=active_tenancy)
+            
+            PaymentReport.objects.create(
+                tenancy=active_tenancy,
+                rent_due=rent_due,
+                reason=reason,
+                expected_payment_date=expected_date if expected_date else None
+            )
+            
+            # Update rent due
+            rent_due.reported_to_office = True
+            rent_due.report_date = timezone.now()
+            rent_due.report_notes = reason
+            rent_due.save()
+            
+            messages.success(request, 'Your payment issue has been reported to the office.')
+            return redirect('rent_due')
+        else:
+            messages.error(request, 'Please fill in all required fields.')
+    
+    # Previous reports
+    previous_reports = PaymentReport.objects.filter(
+        tenancy=active_tenancy
+    ).select_related('rent_due').order_by('-report_date')[:5]
+    
+    context = {
+        'active_tenancy': active_tenancy,
+        'unpaid_dues': unpaid_dues,
+        'previous_reports': previous_reports,
+    }
+    
+    return render(request, 'tenant/report_payment_issue.html', context)
+
+
+# ============= UTILITY BILLS SECTION =============
+
+@login_required
+@tenant_required
+def water_bills(request):
+    """Display tenant's water bills"""
+    try:
+        active_tenancy = Tenancy.objects.select_related(
+            'room', 'apartment'
+        ).get(
+            tenant=request.user,
+            status='active',
+            is_deleted=False
+        )
+    except Tenancy.DoesNotExist:
+        messages.warning(request, 'You do not have an active tenancy.')
+        return redirect('tenant_dashboard')
+    
+    bills = WaterBill.objects.filter(
+        tenancy=active_tenancy
+    ).order_by('-bill_month')
+    
+    # Statistics
+    total_bills = bills.count()
+    pending_bills = bills.filter(status='pending').count()
+    overdue_bills = bills.filter(status='overdue').count()
+    total_amount = bills.aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
+    
+    context = {
+        'active_tenancy': active_tenancy,
+        'bills': bills,
+        'total_bills': total_bills,
+        'pending_bills': pending_bills,
+        'overdue_bills': overdue_bills,
+        'total_amount': total_amount,
+    }
+    
+    return render(request, 'tenant/water_bills.html', context)
+
+
+@login_required
+@tenant_required
+def electricity_bills(request):
+    """Display tenant's electricity bills"""
+    try:
+        active_tenancy = Tenancy.objects.select_related(
+            'room', 'apartment'
+        ).get(
+            tenant=request.user,
+            status='active',
+            is_deleted=False
+        )
+    except Tenancy.DoesNotExist:
+        messages.warning(request, 'You do not have an active tenancy.')
+        return redirect('tenant_dashboard')
+    
+    bills = ElectricityBill.objects.filter(
+        tenancy=active_tenancy
+    ).order_by('-bill_month')
+    
+    # Statistics
+    total_bills = bills.count()
+    total_units = bills.aggregate(total=Sum('units_purchased'))['total'] or Decimal('0.00')
+    total_amount = bills.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    
+    context = {
+        'active_tenancy': active_tenancy,
+        'bills': bills,
+        'total_bills': total_bills,
+        'total_units': total_units,
+        'total_amount': total_amount,
+    }
+    
+    return render(request, 'tenant/electricity_bills.html', context)
+
+
+@login_required
+@tenant_required
+def bill_history(request):
+    """Display combined utility bill history"""
+    try:
+        active_tenancy = Tenancy.objects.select_related(
+            'room', 'apartment'
+        ).get(
+            tenant=request.user,
+            status='active',
+            is_deleted=False
+        )
+    except Tenancy.DoesNotExist:
+        messages.warning(request, 'You do not have an active tenancy.')
+        return redirect('tenant_dashboard')
+    
+    water_bills = WaterBill.objects.filter(
+        tenancy=active_tenancy
+    ).order_by('-bill_month')
+    
+    electricity_bills = ElectricityBill.objects.filter(
+        tenancy=active_tenancy
+    ).order_by('-bill_month')
+    
+    # Combined statistics
+    total_water = water_bills.aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
+    total_electricity = electricity_bills.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    total_utilities = total_water + total_electricity
+    
+    context = {
+        'active_tenancy': active_tenancy,
+        'water_bills': water_bills,
+        'electricity_bills': electricity_bills,
+        'total_water': total_water,
+        'total_electricity': total_electricity,
+        'total_utilities': total_utilities,
+    }
+    
+    return render(request, 'tenant/bill_history.html', context)
+
+
+# ============= SUPPORT SECTION =============
+
+@login_required
+@tenant_required
+def notifications(request):
+    """Display tenant's notifications"""
+    all_notifications = Notification.objects.filter(
+        user=request.user
+    ).order_by('-created_at')
+    
+    unread_notifications = all_notifications.filter(is_read=False)
+    
+    # Mark as read if requested
+    if request.method == 'POST':
+        notification_id = request.POST.get('notification_id')
+        if notification_id:
+            notification = get_object_or_404(Notification, id=notification_id, user=request.user)
+            notification.is_read = True
+            notification.read_at = timezone.now()
+            notification.save()
+            messages.success(request, 'Notification marked as read.')
+            return redirect('notifications')
+        
+        # Mark all as read
+        if request.POST.get('mark_all_read'):
+            unread_notifications.update(is_read=True, read_at=timezone.now())
+            messages.success(request, 'All notifications marked as read.')
+            return redirect('notifications')
+    
+    context = {
+        'all_notifications': all_notifications,
+        'unread_notifications': unread_notifications,
+        'unread_count': unread_notifications.count(),
+    }
+    
+    return render(request, 'tenant/notifications.html', context)
+
+
+@login_required
+@tenant_required
+def contact_admin(request):
+    """Contact property admin"""
+    try:
+        active_tenancy = Tenancy.objects.select_related(
+            'room', 'apartment', 'apartment__owner'
+        ).get(
+            tenant=request.user,
+            status='active',
+            is_deleted=False
+        )
+    except Tenancy.DoesNotExist:
+        messages.warning(request, 'You do not have an active tenancy.')
+        return redirect('tenant_dashboard')
+    
+    if request.method == 'POST':
+        subject = request.POST.get('subject')
+        message = request.POST.get('message')
+        
+        if subject and message:
+            # Create notification for admin
+            Notification.objects.create(
+                user=active_tenancy.apartment.owner,
+                notification_type='general',
+                title=f'Message from {request.user.get_full_name()}',
+                message=f'Subject: {subject}\n\n{message}'
+            )
+            
+            messages.success(request, 'Your message has been sent to the property manager.')
+            return redirect('tenant_dashboard')
+        else:
+            messages.error(request, 'Please fill in all fields.')
+    
+    context = {
+        'active_tenancy': active_tenancy,
+        'admin': active_tenancy.apartment.owner,
+    }
+    
+    return render(request, 'tenant/contact_admin.html', context)
+
+
+@login_required
+@tenant_required
+def help_faq(request):
+    """Help and FAQ page"""
+    # FAQ data - in production, this could come from database
+    faqs = [
+        {
+            'category': 'Rent Payments',
+            'questions': [
+                {
+                    'question': 'When is rent due?',
+                    'answer': 'Rent is due on the 3rd of every month. Late payments may incur additional fees.'
+                },
+                {
+                    'question': 'How can I pay rent?',
+                    'answer': 'You can pay rent via M-Pesa STK Push, bank transfer, or cash at the office.'
+                },
+                {
+                    'question': 'What if I cannot pay rent on time?',
+                    'answer': 'Please report your payment issue through the "Report Payment Issue" page as soon as possible.'
+                },
+            ]
+        },
+        {
+            'category': 'Utility Bills',
+            'questions': [
+                {
+                    'question': 'How are water bills calculated?',
+                    'answer': 'Water bills are calculated based on your meter reading multiplied by the rate per unit.'
+                },
+                {
+                    'question': 'Where can I find my electricity token?',
+                    'answer': 'Your electricity tokens are displayed in the Electricity Bills section and sent via SMS.'
+                },
+            ]
+        },
+        {
+            'category': 'Tenancy',
+            'questions': [
+                {
+                    'question': 'How do I request room maintenance?',
+                    'answer': 'Contact your property manager through the "Contact Admin" page with details of the issue.'
+                },
+                {
+                    'question': 'When will my deposit be refunded?',
+                    'answer': 'Deposits are refunded after tenancy termination, subject to room condition inspection.'
+                },
+            ]
+        },
+    ]
+    
+    context = {
+        'faqs': faqs,
+    }
+    
+    return render(request, 'tenant/help_faq.html', context)
