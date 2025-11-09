@@ -1,0 +1,241 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Room {{ room.room_number }} - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-door-open me-2"></i>Room {{ room.room_number }}
+        </h1>
+        <p class="page-subtitle">
+            <a href="{% url 'apartment_detail' room.apartment.pk %}">{{ room.apartment.name }}</a> - Floor {{ room.floor_number }}
+        </p>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'room_edit' room.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-2"></i>Edit
+        </a>
+        <form method="post" action="{% url 'room_delete' room.pk %}" style="display: inline;" 
+              onsubmit="return confirm('Are you sure you want to delete this room?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">
+                <i class="bi bi-trash me-2"></i>Delete
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Room Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Room Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Room Number:</strong>
+                        <p class="mb-0">{{ room.room_number }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Room Type:</strong>
+                        <p class="mb-0">{{ room.room_type }}</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Floor Number:</strong>
+                        <p class="mb-0">Floor {{ room.floor_number }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Status:</strong>
+                        <p class="mb-0">
+                            {% if room.status == 'occupied' %}
+                            <span class="badge bg-success">Occupied</span>
+                            {% elif room.status == 'available' %}
+                            <span class="badge bg-info">Available</span>
+                            {% else %}
+                            <span class="badge bg-warning">Maintenance</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Monthly Rent:</strong>
+                        <p class="mb-0 text-primary fs-5">KES {{ room.monthly_rent|floatformat:0 }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Deposit Amount:</strong>
+                        <p class="mb-0 fs-5">KES {{ room.deposit_amount|floatformat:0 }}</p>
+                    </div>
+                </div>
+                
+                <div class="mb-0">
+                    <strong>Features:</strong>
+                    <div class="mt-2">
+                        <span class="badge {% if room.has_balcony %}bg-success{% else %}bg-secondary{% endif %} me-2">
+                            <i class="bi bi-{% if room.has_balcony %}check{% else %}x{% endif %}-circle me-1"></i>Balcony
+                        </span>
+                        <span class="badge {% if room.has_shower %}bg-success{% else %}bg-secondary{% endif %} me-2">
+                            <i class="bi bi-{% if room.has_shower %}check{% else %}x{% endif %}-circle me-1"></i>Shower
+                        </span>
+                        <span class="badge {% if room.has_kitchen_unit %}bg-success{% else %}bg-secondary{% endif %} me-2">
+                            <i class="bi bi-{% if room.has_kitchen_unit %}check{% else %}x{% endif %}-circle me-1"></i>Kitchen Unit
+                        </span>
+                        <span class="badge {% if room.has_clothes_cabinet %}bg-success{% else %}bg-secondary{% endif %}">
+                            <i class="bi bi-{% if room.has_clothes_cabinet %}check{% else %}x{% endif %}-circle me-1"></i>Clothes Cabinet
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Tenant -->
+        {% if current_tenancy %}
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-person-check me-2"></i>Current Tenant</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <strong>Name:</strong>
+                        <p class="mb-0">{{ current_tenancy.tenant.get_full_name }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Phone:</strong>
+                        <p class="mb-0">{{ current_tenancy.tenant.phone_number }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Move-in Date:</strong>
+                        <p class="mb-0">{{ current_tenancy.start_date|date:"M d, Y" }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Deposit Paid:</strong>
+                        <p class="mb-0">KES {{ current_tenancy.deposit_paid|floatformat:0 }}</p>
+                    </div>
+                </div>
+                <a href="#" class="btn btn-sm btn-primary">View Tenant Details</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Tenancy History -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Tenancy History</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if tenancy_history %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Tenant</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tenancy in tenancy_history %}
+                            <tr>
+                                <td>{{ tenancy.tenant.get_full_name }}</td>
+                                <td>{{ tenancy.start_date|date:"M d, Y" }}</td>
+                                <td>
+                                    {% if tenancy.end_date %}
+                                    {{ tenancy.end_date|date:"M d, Y" }}
+                                    {% else %}
+                                    <span class="text-muted">Present</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if tenancy.status == 'active' %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% elif tenancy.status == 'terminated' %}
+                                    <span class="badge bg-danger">Terminated</span>
+                                    {% elif tenancy.status == 'switched' %}
+                                    <span class="badge bg-info">Switched Room</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">{{ tenancy.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <p class="text-muted">No tenancy history available</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Quick Stats -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Quick Stats</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3 pb-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Current Status</span>
+                        {% if room.status == 'occupied' %}
+                        <span class="badge bg-success">Occupied</span>
+                        {% elif room.status == 'available' %}
+                        <span class="badge bg-info">Available</span>
+                        {% else %}
+                        <span class="badge bg-warning">Maintenance</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mb-3 pb-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Total Tenancies</span>
+                        <strong>{{ tenancy_history.count }}</strong>
+                    </div>
+                </div>
+                
+                <div class="mb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Monthly Income</span>
+                        <strong class="text-primary">KES {{ room.monthly_rent|floatformat:0 }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'room_edit' room.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-pencil me-2"></i>Edit Room
+                    </a>
+                    {% if room.status == 'available' %}
+                    <a href="#" class="btn btn-outline-success">
+                        <i class="bi bi-person-plus me-2"></i>Add Tenant
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'apartment_detail' room.apartment.pk %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-building me-2"></i>View Apartment
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

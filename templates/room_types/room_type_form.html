@@ -1,0 +1,83 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Add{% endif %} Room Type - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <h1 class="page-title">
+        <i class="bi bi-grid-3x3 me-2"></i>{% if is_edit %}Edit{% else %}Add New{% endif %} Room Type
+    </h1>
+    <p class="page-subtitle">{% if is_edit %}Update room type information{% else %}Create a new room type{% endif %}</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Room Type <span class="text-danger">*</span></label>
+                        <select class="form-select" id="name" name="name" required>
+                            <option value="">Select Room Type</option>
+                            {% for value, label in room_choices %}
+                            <option value="{{ value }}" 
+                                {% if is_edit and room_type.name == value %}selected{% endif %}
+                                {% if form_data.name == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Choose the category that best describes this room type</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="5" 
+                                  placeholder="Provide details about this room type...">{% if is_edit %}{{ room_type.description }}{% elif form_data %}{{ form_data.description }}{% endif %}</textarea>
+                        <small class="text-muted">Describe the features and characteristics of this room type</small>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% if is_edit %}{% url 'room_type_detail' room_type.pk %}{% else %}{% url 'room_type_list' %}{% endif %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>{% if is_edit %}Update{% else %}Create{% endif %} Room Type
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-info-circle me-2"></i>Room Type Guide
+                </h5>
+                <ul class="mb-0">
+                    <li class="mb-2"><strong>Bedsitter:</strong> Single room with kitchen unit and bathroom</li>
+                    <li class="mb-2"><strong>Single Room:</strong> One room, shared facilities</li>
+                    <li class="mb-2"><strong>One Bedroom:</strong> Bedroom, living room, kitchen, bathroom</li>
+                    <li class="mb-2"><strong>Two Bedroom:</strong> Two bedrooms with shared facilities</li>
+                    <li><strong>Three Bedroom:</strong> Three bedrooms with shared facilities</li>
+                </ul>
+            </div>
+        </div>
+        
+        {% if not is_edit %}
+        <div class="card bg-warning bg-opacity-10 border-warning mt-3">
+            <div class="card-body">
+                <h6 class="card-title text-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Administrator Only
+                </h6>
+                <p class="mb-0 small">Only system administrators can create and manage room types. These categories will be available to all property owners.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

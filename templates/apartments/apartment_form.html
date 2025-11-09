@@ -1,0 +1,88 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Add{% endif %} Apartment - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <h1 class="page-title">
+        <i class="bi bi-building me-2"></i>{% if is_edit %}Edit{% else %}Add New{% endif %} Apartment
+    </h1>
+    <p class="page-subtitle">{% if is_edit %}Update apartment information{% else %}Add a new apartment to your properties{% endif %}</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Apartment Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{% if is_edit %}{{ apartment.name }}{% elif form_data %}{{ form_data.name }}{% endif %}" 
+                               required>
+                        <small class="text-muted">E.g., Sunrise Apartments, Building A</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="location" class="form-label">Location <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="location" name="location" 
+                               value="{% if is_edit %}{{ apartment.location }}{% elif form_data %}{{ form_data.location }}{% endif %}" 
+                               required>
+                        <small class="text-muted">Full address of the apartment</small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="total_floors" class="form-label">Total Floors <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="total_floors" name="total_floors" 
+                                   value="{% if is_edit %}{{ apartment.total_floors }}{% elif form_data %}{{ form_data.total_floors }}{% endif %}" 
+                                   min="1" required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="water_rate_per_unit" class="form-label">Water Rate per Unit (KES)</label>
+                            <input type="number" class="form-control" id="water_rate_per_unit" name="water_rate_per_unit" 
+                                   value="{% if is_edit %}{{ apartment.water_rate_per_unit }}{% elif form_data %}{{ form_data.water_rate_per_unit }}{% else %}0.00{% endif %}" 
+                                   step="0.01" min="0">
+                            <small class="text-muted">Cost per water unit</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="4">{% if is_edit %}{{ apartment.description }}{% elif form_data %}{{ form_data.description }}{% endif %}</textarea>
+                        <small class="text-muted">Additional information about the apartment</small>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% if is_edit %}{% url 'apartment_detail' apartment.pk %}{% else %}{% url 'apartment_list' %}{% endif %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>{% if is_edit %}Update{% else %}Create{% endif %} Apartment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-info-circle me-2"></i>Tips
+                </h5>
+                <ul class="mb-0">
+                    <li class="mb-2">Use a clear, descriptive name for easy identification</li>
+                    <li class="mb-2">Include the full address for accurate location tracking</li>
+                    <li class="mb-2">Set the water rate if you charge tenants for water usage</li>
+                    <li>You can add rooms to this apartment after creation</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

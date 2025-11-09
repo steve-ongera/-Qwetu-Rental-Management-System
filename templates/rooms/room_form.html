@@ -1,0 +1,168 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Add{% endif %} Room - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <h1 class="page-title">
+        <i class="bi bi-door-open me-2"></i>{% if is_edit %}Edit{% else %}Add New{% endif %} Room
+    </h1>
+    <p class="page-subtitle">{% if is_edit %}Update room information{% else %}Add a new room to your apartment{% endif %}</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="apartment" class="form-label">Apartment <span class="text-danger">*</span></label>
+                        <select class="form-select" id="apartment" name="apartment" required {% if is_edit %}disabled{% endif %}>
+                            <option value="">Select Apartment</option>
+                            {% for apartment in apartments %}
+                            <option value="{{ apartment.pk }}" 
+                                {% if is_edit and room.apartment.pk == apartment.pk %}selected{% endif %}
+                                {% if form_data.apartment == apartment.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ apartment.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if is_edit %}
+                        <input type="hidden" name="apartment" value="{{ room.apartment.pk }}">
+                        {% endif %}
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="room_number" class="form-label">Room Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="room_number" name="room_number" 
+                                   value="{% if is_edit %}{{ room.room_number }}{% elif form_data %}{{ form_data.room_number }}{% endif %}" 
+                                   required>
+                            <small class="text-muted">E.g., A1, B2, 101</small>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="room_type" class="form-label">Room Type <span class="text-danger">*</span></label>
+                            <select class="form-select" id="room_type" name="room_type" required>
+                                <option value="">Select Type</option>
+                                {% for room_type in room_types %}
+                                <option value="{{ room_type.pk }}" 
+                                    {% if is_edit and room.room_type.pk == room_type.pk %}selected{% endif %}
+                                    {% if form_data.room_type == room_type.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ room_type.get_name_display }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="floor_number" class="form-label">Floor Number <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="floor_number" name="floor_number" 
+                               value="{% if is_edit %}{{ room.floor_number }}{% elif form_data %}{{ form_data.floor_number }}{% endif %}" 
+                               min="0" required>
+                        <small class="text-muted">Ground floor is 0</small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="monthly_rent" class="form-label">Monthly Rent (KES) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="monthly_rent" name="monthly_rent" 
+                                   value="{% if is_edit %}{{ room.monthly_rent }}{% elif form_data %}{{ form_data.monthly_rent }}{% endif %}" 
+                                   step="0.01" min="0" required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="deposit_amount" class="form-label">Deposit Amount (KES) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="deposit_amount" name="deposit_amount" 
+                                   value="{% if is_edit %}{{ room.deposit_amount }}{% elif form_data %}{{ form_data.deposit_amount }}{% endif %}" 
+                                   step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="card bg-light mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">Room Features</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="has_balcony" name="has_balcony"
+                                               {% if is_edit and room.has_balcony %}checked{% endif %}
+                                               {% if form_data.has_balcony %}checked{% endif %}>
+                                        <label class="form-check-label" for="has_balcony">
+                                            <i class="bi bi-grid-3x3 me-2"></i>Has Balcony
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="has_shower" name="has_shower"
+                                               {% if is_edit and room.has_shower %}checked{% elif not is_edit %}checked{% endif %}
+                                               {% if form_data.has_shower %}checked{% endif %}>
+                                        <label class="form-check-label" for="has_shower">
+                                            <i class="bi bi-droplet me-2"></i>Has Shower
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="has_kitchen_unit" name="has_kitchen_unit"
+                                               {% if is_edit and room.has_kitchen_unit %}checked{% elif not is_edit %}checked{% endif %}
+                                               {% if form_data.has_kitchen_unit %}checked{% endif %}>
+                                        <label class="form-check-label" for="has_kitchen_unit">
+                                            <i class="bi bi-grid me-2"></i>Has Kitchen Unit
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="has_clothes_cabinet" name="has_clothes_cabinet"
+                                               {% if is_edit and room.has_clothes_cabinet %}checked{% elif not is_edit %}checked{% endif %}
+                                               {% if form_data.has_clothes_cabinet %}checked{% endif %}>
+                                        <label class="form-check-label" for="has_clothes_cabinet">
+                                            <i class="bi bi-box me-2"></i>Has Clothes Cabinet
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% if is_edit %}{% url 'room_detail' room.pk %}{% else %}{% url 'room_list' %}{% endif %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>{% if is_edit %}Update{% else %}Create{% endif %} Room
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-info-circle me-2"></i>Guidelines
+                </h5>
+                <ul class="mb-0">
+                    <li class="mb-2">Room numbers must be unique within each apartment</li>
+                    <li class="mb-2">Set competitive rent rates based on room type and location</li>
+                    <li class="mb-2">Deposit is typically equal to one month's rent</li>
+                    <li class="mb-2">Check relevant features to attract tenants</li>
+                    <li>You can update room status from the room detail page</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

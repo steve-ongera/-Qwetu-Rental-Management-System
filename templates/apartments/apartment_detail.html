@@ -1,0 +1,212 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}{{ apartment.name }} - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-building me-2"></i>{{ apartment.name }}
+        </h1>
+        <p class="page-subtitle">
+            <i class="bi bi-geo-alt me-1"></i>{{ apartment.location }}
+        </p>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'apartment_edit' apartment.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-2"></i>Edit
+        </a>
+        <a href="{% url 'room_create' %}?apartment={{ apartment.pk }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>Add Room
+        </a>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ total_rooms }}</h3>
+                        <small>Total Rooms</small>
+                    </div>
+                    <i class="bi bi-door-open" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ occupied_rooms }}</h3>
+                        <small>Occupied</small>
+                    </div>
+                    <i class="bi bi-check-circle" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ available_rooms }}</h3>
+                        <small>Available</small>
+                    </div>
+                    <i class="bi bi-house-check" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ occupancy_rate }}%</h3>
+                        <small>Occupancy Rate</small>
+                    </div>
+                    <i class="bi bi-graph-up" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Apartment Details -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Apartment Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Name:</strong>
+                        <p>{{ apartment.name }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Location:</strong>
+                        <p>{{ apartment.location }}</p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Total Floors:</strong>
+                        <p>{{ apartment.total_floors }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Water Rate per Unit:</strong>
+                        <p>KES {{ apartment.water_rate_per_unit }}</p>
+                    </div>
+                </div>
+                {% if apartment.description %}
+                <div class="mb-0">
+                    <strong>Description:</strong>
+                    <p>{{ apartment.description }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Rooms List -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-door-open me-2"></i>Rooms ({{ total_rooms }})</h5>
+                <a href="{% url 'room_create' %}?apartment={{ apartment.pk }}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>Add Room
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if rooms %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Room No.</th>
+                                <th>Type</th>
+                                <th>Floor</th>
+                                <th>Rent</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for room in rooms %}
+                            <tr>
+                                <td><strong>{{ room.room_number }}</strong></td>
+                                <td>{{ room.room_type }}</td>
+                                <td>Floor {{ room.floor_number }}</td>
+                                <td>KES {{ room.monthly_rent|floatformat:0 }}</td>
+                                <td>
+                                    {% if room.status == 'occupied' %}
+                                    <span class="badge bg-success">Occupied</span>
+                                    {% elif room.status == 'available' %}
+                                    <span class="badge bg-info">Available</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">Maintenance</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'room_detail' room.pk %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <p class="text-muted">No rooms added yet.</p>
+                    <a href="{% url 'room_create' %}?apartment={{ apartment.pk }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>Add First Room
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Active Tenants -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Active Tenants</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if active_tenancies %}
+                <div class="list-group list-group-flush">
+                    {% for tenancy in active_tenancies %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ tenancy.tenant.get_full_name }}</h6>
+                                <small class="text-muted">Room {{ tenancy.room.room_number }}</small>
+                            </div>
+                            <span class="badge bg-success">Active</span>
+                        </div>
+                        <small class="text-muted">Since {{ tenancy.start_date|date:"M d, Y" }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <p class="text-muted">No active tenants</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
