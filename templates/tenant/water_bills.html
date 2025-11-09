@@ -1,0 +1,222 @@
+{% extends 'tenant/tenant_base.html' %}
+{% load static %}
+
+{% block title %}Water Bills{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-droplet me-2"></i>
+            Water Bills
+        </h1>
+        <p class="page-subtitle">Track your water consumption and bills</p>
+    </div>
+    <a href="{% url 'tenant_dashboard' %}" class="btn btn-outline-light">
+        <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+    </a>
+</div>
+
+<!-- Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="stat-value">{{ total_bills }}</div>
+            <div class="stat-label">Total Bills</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="bi bi-clock"></i>
+            </div>
+            <div class="stat-value">{{ pending_bills }}</div>
+            <div class="stat-label">Pending</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="stat-value">{{ overdue_bills }}</div>
+            <div class="stat-label">Overdue</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="stat-value">${{ total_amount }}</div>
+            <div class="stat-label">Total Amount</div>
+        </div>
+    </div>
+</div>
+
+<!-- Water Bills List -->
+<div class="content-card">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h5 class="mb-0">Bill History</h5>
+        <div class="text-muted small">
+            <i class="bi bi-info-circle me-1"></i>
+            Rate: ${{ active_tenancy.apartment.water_rate_per_unit }} per unit
+        </div>
+    </div>
+
+    {% if bills %}
+    <div class="table-responsive">
+        <table class="table table-dark table-hover">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Previous Reading</th>
+                    <th>Current Reading</th>
+                    <th>Units Consumed</th>
+                    <th>Rate/Unit</th>
+                    <th>Total Amount</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bill in bills %}
+                <tr>
+                    <td class="fw-semibold">{{ bill.bill_month|date:"F Y" }}</td>
+                    <td>{{ bill.previous_reading }}</td>
+                    <td>{{ bill.current_reading }}</td>
+                    <td class="text-primary fw-semibold">{{ bill.units_consumed }} units</td>
+                    <td>${{ bill.rate_per_unit }}</td>
+                    <td class="fw-semibold">${{ bill.total_amount }}</td>
+                    <td>{{ bill.due_date|date:"M d, Y" }}</td>
+                    <td>
+                        {% if bill.status == 'paid' %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle"></i> Paid
+                            </span>
+                            {% if bill.payment_date %}
+                            <small class="d-block text-muted mt-1">
+                                {{ bill.payment_date|date:"M d, Y" }}
+                            </small>
+                            {% endif %}
+                        {% elif bill.status == 'overdue' %}
+                            <span class="badge bg-danger">
+                                <i class="bi bi-exclamation-triangle"></i> Overdue
+                            </span>
+                        {% else %}
+                            <span class="badge bg-warning">
+                                <i class="bi bi-clock"></i> Pending
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if bill.status != 'paid' %}
+                        <button class="btn btn-sm btn-primary" onclick="payBill('{{ bill.id }}')">
+                            <i class="bi bi-credit-card"></i> Pay
+                        </button>
+                        {% else %}
+                        <button class="btn btn-sm btn-outline-secondary" disabled>
+                            <i class="bi bi-receipt"></i> View
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Summary Card -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="p-3 bg-dark rounded">
+                <h6 class="text-muted mb-3">Consumption Summary</h6>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Average Monthly Consumption:</span>
+                    <strong class="text-primary">
+                        {% widthratio bills|length 1 bills|length as avg %}
+                        {{ bills|first|default:"0" }} units
+                    </strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Last Month:</span>
+                    <strong>{{ bills.0.units_consumed|default:"0" }} units</strong>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="p-3 bg-dark rounded">
+                <h6 class="text-muted mb-3">Payment Summary</h6>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Pending Amount:</span>
+                    <strong class="text-warning">
+                        ${% for bill in bills %}{% if bill.status != 'paid' %}{{ bill.total_amount }}{% endif %}{% endfor %}
+                    </strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Total Paid:</span>
+                    <strong class="text-success">
+                        ${% for bill in bills %}{% if bill.status == 'paid' %}{{ bill.total_amount }}{% endif %}{% endfor %}
+                    </strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-droplet" style="font-size: 4rem; color: var(--text-muted); opacity: 0.3;"></i>
+        <p class="text-muted mt-3 mb-0">No water bills available yet.</p>
+        <small class="text-muted">Bills will appear here once generated by the property manager.</small>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Info Alert -->
+<div class="alert alert-info mt-4">
+    <div class="d-flex">
+        <i class="bi bi-info-circle me-3" style="font-size: 1.5rem;"></i>
+        <div>
+            <h6 class="mb-2">About Water Bills</h6>
+            <ul class="mb-0 small">
+                <li>Water bills are calculated based on meter readings taken at the end of each month</li>
+                <li>Payment is due by the date shown in the bill</li>
+                <li>Contact the property manager if you notice any discrepancies in your readings</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function payBill(billId) {
+    // In production, this would redirect to payment page or initiate M-Pesa payment
+    alert('Payment functionality will be implemented. Bill ID: ' + billId);
+}
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .alert-info {
+        background-color: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: var(--text-primary);
+        border-radius: 0.75rem;
+    }
+    
+    .table-dark tbody tr {
+        transition: all 0.3s ease;
+    }
+    
+    .table-dark tbody tr:hover {
+        background-color: rgba(99, 102, 241, 0.1);
+        transform: scale(1.01);
+    }
+</style>
+{% endblock %}

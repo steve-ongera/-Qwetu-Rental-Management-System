@@ -82,4 +82,26 @@ urlpatterns = [
     path('payments/deposits/', views.deposits_list, name='deposits_list'),
     path('payments/deposits/<int:pk>/', views.deposit_detail, name='deposit_detail'),
     path('payments/deposits/<int:pk>/refund/', views.deposit_refund, name='deposit_refund'),
+
+
+    # My Tenancy
+    path('my-room/', views.my_room, name='my_room'),
+    path('tenancy-details/', views.tenancy_details, name='tenancy_details'),
+    path('deposit-info/', views.deposit_info, name='deposit_info'),
+    
+    # Payments
+    path('pay-rent/', views.pay_rent, name='pay_rent'),
+    path('rent-due/', views.rent_due, name='rent_due'),
+    path('payment-history/', views.payment_history, name='payment_history'),
+    path('report-payment-issue/', views.report_payment_issue, name='report_payment_issue'),
+    
+    # Utility Bills
+    path('water-bills/', views.water_bills, name='water_bills'),
+    path('electricity-bills/', views.electricity_bills, name='electricity_bills'),
+    path('bill-history/', views.bill_history, name='bill_history'),
+    
+    # Support
+    path('notifications/', views.notifications, name='notifications'),
+    path('contact-admin/', views.contact_admin, name='contact_admin'),
+    path('help-faq/', views.help_faq, name='help_faq'),
 ]

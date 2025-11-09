@@ -1,0 +1,312 @@
+{% extends 'tenant/tenant_base.html' %}
+{% load static %}
+
+{% block title %}Help & FAQ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-question-circle me-2"></i>
+            Help & Frequently Asked Questions
+        </h1>
+        <p class="page-subtitle">Find answers to common questions</p>
+    </div>
+    <a href="{% url 'tenant_dashboard' %}" class="btn btn-outline-light">
+        <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+    </a>
+</div>
+
+<!-- Search Box -->
+<div class="content-card mb-4">
+    <div class="input-group input-group-lg">
+        <span class="input-group-text bg-dark border-secondary">
+            <i class="bi bi-search"></i>
+        </span>
+        <input type="text" class="form-control" id="faqSearch" 
+               placeholder="Search for help... (e.g., 'How do I pay rent?')">
+    </div>
+</div>
+
+<!-- Quick Access Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="content-card text-center h-100" style="cursor: pointer;" onclick="scrollToCategory('rent')">
+            <div class="stat-icon primary mx-auto mb-3">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <h6>Rent Payments</h6>
+            <small class="text-muted">Payment methods & schedules</small>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="content-card text-center h-100" style="cursor: pointer;" onclick="scrollToCategory('utilities')">
+            <div class="stat-icon success mx-auto mb-3">
+                <i class="bi bi-droplet"></i>
+            </div>
+            <h6>Utility Bills</h6>
+            <small class="text-muted">Water & electricity</small>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="content-card text-center h-100" style="cursor: pointer;" onclick="scrollToCategory('tenancy')">
+            <div class="stat-icon warning mx-auto mb-3">
+                <i class="bi bi-house-door"></i>
+            </div>
+            <h6>Tenancy</h6>
+            <small class="text-muted">Lease & property info</small>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="content-card text-center h-100" style="cursor: pointer;" onclick="scrollToCategory('maintenance')">
+            <div class="stat-icon danger mx-auto mb-3">
+                <i class="bi bi-tools"></i>
+            </div>
+            <h6>Maintenance</h6>
+            <small class="text-muted">Repairs & issues</small>
+        </div>
+    </div>
+</div>
+
+<!-- FAQ Accordion -->
+{% for category in faqs %}
+<div class="content-card mb-3" id="{{ category.category|slugify }}">
+    <h5 class="mb-4">
+        {% if category.category == 'Rent Payments' %}
+            <i class="bi bi-cash-stack me-2 text-primary"></i>
+        {% elif category.category == 'Utility Bills' %}
+            <i class="bi bi-droplet me-2 text-success"></i>
+        {% elif category.category == 'Tenancy' %}
+            <i class="bi bi-house-door me-2 text-warning"></i>
+        {% else %}
+            <i class="bi bi-tools me-2 text-danger"></i>
+        {% endif %}
+        {{ category.category }}
+    </h5>
+    
+    <div class="accordion accordion-flush" id="faq{{ forloop.counter }}">
+        {% for item in category.questions %}
+        <div class="accordion-item bg-dark border-secondary faq-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed bg-dark text-light" type="button" 
+                        data-bs-toggle="collapse" data-bs-target="#faq{{ forloop.parentloop.counter }}_{{ forloop.counter }}">
+                    {{ item.question }}
+                </button>
+            </h2>
+            <div id="faq{{ forloop.parentloop.counter }}_{{ forloop.counter }}" 
+                 class="accordion-collapse collapse" data-bs-parent="#faq{{ forloop.parentloop.counter }}">
+                <div class="accordion-body bg-dark">
+                    <p class="text-muted mb-0">{{ item.answer }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+<!-- Still Need Help -->
+<div class="content-card">
+    <div class="text-center py-4">
+        <i class="bi bi-chat-dots text-primary" style="font-size: 3rem;"></i>
+        <h5 class="mt-3 mb-2">Still Need Help?</h5>
+        <p class="text-muted mb-4">Can't find what you're looking for? Our property management team is here to assist you.</p>
+        <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <a href="{% url 'contact_admin' %}" class="btn btn-primary">
+                <i class="bi bi-chat-dots me-2"></i> Contact Property Manager
+            </a>
+            <a href="tel:+254700000000" class="btn btn-outline-light">
+                <i class="bi bi-telephone me-2"></i> Call Us
+            </a>
+            <a href="mailto:support@rentmanager.com" class="btn btn-outline-light">
+                <i class="bi bi-envelope me-2"></i> Email Us
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Additional Resources -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="content-card">
+            <h6 class="mb-3">
+                <i class="bi bi-book me-2"></i>
+                Helpful Resources
+            </h6>
+            <ul class="list-unstyled">
+                <li class="mb-2">
+                    <a href="#" class="text-decoration-none">
+                        <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>
+                        Tenant Handbook (PDF)
+                    </a>
+                </li>
+                <li class="mb-2">
+                    <a href="#" class="text-decoration-none">
+                        <i class="bi bi-file-earmark-text me-2 text-primary"></i>
+                        Lease Agreement Template
+                    </a>
+                </li>
+                <li class="mb-2">
+                    <a href="#" class="text-decoration-none">
+                        <i class="bi bi-play-circle me-2 text-success"></i>
+                        Video: How to Use the Portal
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="text-decoration-none">
+                        <i class="bi bi-file-earmark-check me-2 text-warning"></i>
+                        Move-In/Move-Out Checklist
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="content-card">
+            <h6 class="mb-3">
+                <i class="bi bi-clock-history me-2"></i>
+                Recent Updates
+            </h6>
+            <div class="mb-3">
+                <small class="text-muted d-block">{{ "now"|date:"F d, Y" }}</small>
+                <p class="small mb-0">New M-Pesa payment option now available</p>
+            </div>
+            <div class="mb-3">
+                <small class="text-muted d-block">{{ "now"|date:"F d, Y" }}</small>
+                <p class="small mb-0">Updated water billing rates</p>
+            </div>
+            <div>
+                <small class="text-muted d-block">{{ "now"|date:"F d, Y" }}</small>
+                <p class="small mb-0">Portal maintenance scheduled for next Sunday</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Emergency Contacts -->
+<div class="alert alert-danger mt-4">
+    <div class="d-flex align-items-start">
+        <i class="bi bi-exclamation-triangle me-3" style="font-size: 2rem;"></i>
+        <div>
+            <h6 class="mb-2">Emergency Contacts</h6>
+            <div class="row">
+                <div class="col-md-4 mb-2">
+                    <strong>Police:</strong> 999 / 112
+                </div>
+                <div class="col-md-4 mb-2">
+                    <strong>Ambulance:</strong> 999 / 112
+                </div>
+                <div class="col-md-4 mb-2">
+                    <strong>Fire Brigade:</strong> 999
+                </div>
+            </div>
+            <div class="mt-2">
+                <strong>24/7 Property Emergency:</strong> +254 700 000 000
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Search functionality
+document.getElementById('faqSearch').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const faqItems = document.querySelectorAll('.faq-item');
+    
+    faqItems.forEach(item => {
+        const question = item.querySelector('.accordion-button').textContent.toLowerCase();
+        const answer = item.querySelector('.accordion-body').textContent.toLowerCase();
+        
+        if (question.includes(searchTerm) || answer.includes(searchTerm)) {
+            item.style.display = '';
+            if (searchTerm.length > 0) {
+                item.classList.add('highlight');
+            } else {
+                item.classList.remove('highlight');
+            }
+        } else {
+            item.style.display = 'none';
+        }
+    });
+});
+
+// Scroll to category
+function scrollToCategory(category) {
+    const element = document.getElementById(category);
+    if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Open first accordion item
+        const firstAccordion = element.querySelector('.accordion-button');
+        if (firstAccordion && firstAccordion.classList.contains('collapsed')) {
+            firstAccordion.click();
+        }
+    }
+}
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-control {
+        background-color: var(--card-bg);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+    
+    .form-control:focus {
+        background-color: var(--card-bg);
+        border-color: var(--accent-color);
+        color: var(--text-primary);
+        box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+    }
+    
+    .input-group-text {
+        background-color: var(--card-bg);
+        color: var(--text-secondary);
+    }
+    
+    .accordion-button {
+        border: none;
+        font-weight: 500;
+    }
+    
+    .accordion-button:not(.collapsed) {
+        background-color: rgba(99, 102, 241, 0.1);
+        color: var(--accent-color);
+    }
+    
+    .accordion-button:focus {
+        box-shadow: none;
+        border-color: var(--accent-color);
+    }
+    
+    .accordion-button::after {
+        filter: brightness(0) invert(1);
+    }
+    
+    .accordion-item {
+        margin-bottom: 0.5rem;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    
+    .faq-item.highlight {
+        background-color: rgba(99, 102, 241, 0.1) !important;
+        border-color: var(--accent-color) !important;
+    }
+    
+    .alert-danger {
+        background-color: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: var(--text-primary);
+        border-radius: 0.75rem;
+    }
+    
+    .content-card[style*="cursor: pointer"]:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+</style>
+{% endblock %}

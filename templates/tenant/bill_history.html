@@ -1,0 +1,360 @@
+{% extends 'tenant/tenant_base.html' %}
+{% load static %}
+
+{% block title %}Bill History{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-receipt me-2"></i>
+            Utility Bill History
+        </h1>
+        <p class="page-subtitle">Complete history of water and electricity bills</p>
+    </div>
+    <div>
+        <button class="btn btn-outline-light me-2" onclick="window.print()">
+            <i class="bi bi-printer me-2"></i> Print
+        </button>
+        <a href="{% url 'tenant_dashboard' %}" class="btn btn-outline-light">
+            <i class="bi bi-arrow-left me-2"></i> Back
+        </a>
+    </div>
+</div>
+
+<!-- Summary Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-droplet"></i>
+            </div>
+            <div class="stat-value">${{ total_water }}</div>
+            <div class="stat-label">Total Water Bills</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="bi bi-lightning"></i>
+            </div>
+            <div class="stat-value">${{ total_electricity }}</div>
+            <div class="stat-label">Total Electricity</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="bi bi-calculator"></i>
+            </div>
+            <div class="stat-value">${{ total_utilities }}</div>
+            <div class="stat-label">Total Utilities</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i class="bi bi-graph-up-arrow"></i>
+            </div>
+            <div class="stat-value">
+                {% widthratio total_utilities 12 1 %}
+            </div>
+            <div class="stat-label">Avg Monthly</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs for Water and Electricity -->
+<div class="content-card">
+    <ul class="nav nav-tabs mb-4" id="billTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="all-tab" data-bs-toggle="tab" 
+                    data-bs-target="#all" type="button">
+                <i class="bi bi-grid-3x3 me-2"></i>All Bills
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="water-tab" data-bs-toggle="tab" 
+                    data-bs-target="#water" type="button">
+                <i class="bi bi-droplet me-2"></i>Water Bills
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="electricity-tab" data-bs-toggle="tab" 
+                    data-bs-target="#electricity" type="button">
+                <i class="bi bi-lightning me-2"></i>Electricity Bills
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="billTabsContent">
+        <!-- All Bills Tab -->
+        <div class="tab-pane fade show active" id="all" role="tabpanel">
+            <h6 class="mb-3">Combined Utility Bills</h6>
+            <div class="row">
+                <!-- Combined monthly view -->
+                {% for water_bill in water_bills %}
+                <div class="col-md-6 mb-3">
+                    <div class="p-3 bg-dark rounded">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">{{ water_bill.bill_month|date:"F Y" }}</h6>
+                            <span class="badge bg-primary">Monthly Summary</span>
+                        </div>
+                        
+                        <!-- Water -->
+                        <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-droplet text-primary me-2"></i>
+                                <span class="small">Water</span>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-semibold">${{ water_bill.total_amount }}</div>
+                                <small class="text-muted">{{ water_bill.units_consumed }} units</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Electricity (match by month if exists) -->
+                        {% for elec_bill in electricity_bills %}
+                            {% if elec_bill.bill_month == water_bill.bill_month %}
+                            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-lightning text-warning me-2"></i>
+                                    <span class="small">Electricity</span>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-semibold">${{ elec_bill.amount }}</div>
+                                    <small class="text-muted">{{ elec_bill.units_purchased }} units</small>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <!-- Total -->
+                        <div class="d-flex justify-content-between">
+                            <strong>Total Utilities</strong>
+                            <strong class="text-success">
+                                ${% widthratio water_bill.total_amount 1 1 %}
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Water Bills Tab -->
+        <div class="tab-pane fade" id="water" role="tabpanel">
+            <h6 class="mb-3">Water Bills</h6>
+            {% if water_bills %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Previous Reading</th>
+                            <th>Current Reading</th>
+                            <th>Units Consumed</th>
+                            <th>Rate/Unit</th>
+                            <th>Total Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bill in water_bills %}
+                        <tr>
+                            <td class="fw-semibold">{{ bill.bill_month|date:"F Y" }}</td>
+                            <td>{{ bill.previous_reading }}</td>
+                            <td>{{ bill.current_reading }}</td>
+                            <td class="text-primary">{{ bill.units_consumed }}</td>
+                            <td>${{ bill.rate_per_unit }}</td>
+                            <td class="fw-semibold">${{ bill.total_amount }}</td>
+                            <td>
+                                {% if bill.status == 'paid' %}
+                                    <span class="badge bg-success">Paid</span>
+                                {% elif bill.status == 'overdue' %}
+                                    <span class="badge bg-danger">Overdue</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Pending</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <p class="text-muted">No water bills available.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Electricity Bills Tab -->
+        <div class="tab-pane fade" id="electricity" role="tabpanel">
+            <h6 class="mb-3">Electricity Token Purchases</h6>
+            {% if electricity_bills %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Purchase Date</th>
+                            <th>Units Purchased</th>
+                            <th>Amount</th>
+                            <th>Token Number</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bill in electricity_bills %}
+                        <tr>
+                            <td class="fw-semibold">{{ bill.bill_month|date:"F Y" }}</td>
+                            <td>{{ bill.purchase_date|date:"M d, Y" }}</td>
+                            <td class="text-warning">{{ bill.units_purchased }} units</td>
+                            <td class="fw-semibold">${{ bill.amount }}</td>
+                            <td><code>{{ bill.token_number }}</code></td>
+                            <td>
+                                <span class="badge bg-success">Paid</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <p class="text-muted">No electricity purchases available.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Consumption Analysis -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="content-card">
+            <h6 class="mb-3">
+                <i class="bi bi-graph-up me-2"></i>
+                Consumption Trends
+            </h6>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="small">Water Usage Trend</span>
+                    <span class="small fw-semibold text-primary">Stable</span>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-primary" style="width: 65%"></div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="small">Electricity Usage Trend</span>
+                    <span class="small fw-semibold text-warning">Moderate</span>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-warning" style="width: 75%"></div>
+                </div>
+            </div>
+            <div class="alert alert-info mb-0">
+                <small>
+                    <i class="bi bi-lightbulb me-1"></i>
+                    Your utility consumption is within normal range for your room type.
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="content-card">
+            <h6 class="mb-3">
+                <i class="bi bi-piggy-bank me-2"></i>
+                Cost Breakdown
+            </h6>
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                <span class="text-muted">Water Bills:</span>
+                <strong>${{ total_water }}</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                <span class="text-muted">Electricity Bills:</span>
+                <strong>${{ total_electricity }}</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-3 pb-3 border-bottom border-secondary">
+                <span>Total Utilities:</span>
+                <strong class="text-success">${{ total_utilities }}</strong>
+            </div>
+            <div class="d-flex justify-content-between">
+                <span class="text-muted small">Average per Month:</span>
+                <strong>${{ total_utilities|floatformat:2 }}</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="content-card mt-4">
+    <div class="text-center">
+        <h6 class="mb-3">Quick Actions</h6>
+        <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <a href="{% url 'water_bills' %}" class="btn btn-outline-light">
+                <i class="bi bi-droplet me-2"></i> View Water Bills
+            </a>
+            <a href="{% url 'electricity_bills' %}" class="btn btn-outline-light">
+                <i class="bi bi-lightning me-2"></i> View Electricity
+            </a>
+            <a href="{% url 'contact_admin' %}" class="btn btn-outline-light">
+                <i class="bi bi-question-circle me-2"></i> Report Issue
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .nav-tabs {
+        border-bottom: 2px solid var(--border-color);
+    }
+    
+    .nav-tabs .nav-link {
+        color: var(--text-secondary);
+        border: none;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+    }
+    
+    .nav-tabs .nav-link:hover {
+        color: var(--text-primary);
+        border-bottom-color: var(--accent-color);
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: var(--text-primary);
+        background: transparent;
+        border-bottom-color: var(--accent-color);
+    }
+    
+    .progress {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .alert-info {
+        background-color: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: var(--text-primary);
+    }
+    
+    code {
+        background-color: rgba(245, 158, 11, 0.1);
+        color: var(--warning-color);
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+        font-size: 0.85em;
+    }
+
+    @media print {
+        .btn, .nav-tabs {
+            display: none !important;
+        }
+    }
+</style>
+{% endblock %}

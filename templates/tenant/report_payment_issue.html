@@ -1,0 +1,229 @@
+{% extends 'tenant/tenant_base.html' %}
+{% load static %}
+
+{% block title %}Report Payment Issue{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-exclamation-circle me-2"></i>
+            Report Payment Issue
+        </h1>
+        <p class="page-subtitle">Let us know if you're having difficulties with rent payment</p>
+    </div>
+    <a href="{% url 'tenant_dashboard' %}" class="btn btn-outline-light">
+        <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+        </a>
+</div>
+
+<div class="row">
+    <!-- Report Form -->
+    <div class="col-lg-7">
+        <div class="content-card">
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Communication is Key!</strong> If you're facing challenges paying rent on time, please let us know as soon as possible. We're here to work with you.
+            </div>
+
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="mb-4">
+                    <label for="rentDue" class="form-label">Select Rent Due</label>
+                    <select class="form-select" id="rentDue" name="rent_due" required>
+                        <option value="">-- Select the month you need help with --</option>
+                        {% for due in unpaid_dues %}
+                        <option value="{{ due.id }}">
+                            {{ due.month_for|date:"F Y" }} - ${{ due.balance }} 
+                            (Due: {{ due.due_date|date:"M d, Y" }})
+                            {% if due.status == 'overdue' %}★ OVERDUE{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label for="reason" class="form-label">Reason for Payment Difficulty</label>
+                    <textarea class="form-control" id="reason" name="reason" rows="5" 
+                              placeholder="Please explain your situation in detail..." required></textarea>
+                    <small class="text-muted">Be as detailed as possible to help us understand your situation better.</small>
+                </div>
+
+                <div class="mb-4">
+                    <label for="expectedDate" class="form-label">When do you expect to make the payment?</label>
+                    <input type="date" class="form-control" id="expectedDate" name="expected_payment_date">
+                    <small class="text-muted">Optional: Let us know when you anticipate making the payment.</small>
+                </div>
+
+                <div class="mb-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="understand" required>
+                        <label class="form-check-label small" for="understand">
+                            I understand that this report will be forwarded to the property manager and late payment fees may still apply.
+                        </label>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-send me-2"></i> Submit Report
+                    </button>
+                    <a href="{% url 'contact_admin' %}" class="btn btn-outline-light">
+                        <i class="bi bi-chat-dots me-2"></i> Contact Admin Directly
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Info Sidebar -->
+    <div class="col-lg-5">
+        <!-- Outstanding Dues -->
+        {% if unpaid_dues %}
+        <div class="content-card mb-3">
+            <h6 class="mb-3">
+                <i class="bi bi-list-ul me-2"></i>
+                Your Outstanding Dues
+            </h6>
+            {% for due in unpaid_dues %}
+            <div class="p-3 bg-dark rounded mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <strong>{{ due.month_for|date:"F Y" }}</strong>
+                    {% if due.status == 'overdue' %}
+                        <span class="badge bg-danger">OVERDUE</span>
+                    {% else %}
+                        <span class="badge bg-warning">PENDING</span>
+                    {% endif %}
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <span class="text-muted">Balance:</span>
+                    <strong class="text-danger">${{ due.balance }}</strong>
+                </div>
+                <div class="d-flex justify-content-between small mt-1">
+                    <span class="text-muted">Due Date:</span>
+                    <span>{{ due.due_date|date:"M d, Y" }}</span>
+                </div>
+                {% if due.reported_to_office %}
+                <div class="mt-2 pt-2 border-top border-secondary">
+                    <small class="text-success">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Already reported on {{ due.report_date|date:"M d, Y" }}
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Previous Reports -->
+        {% if previous_reports %}
+        <div class="content-card mb-3">
+            <h6 class="mb-3">
+                <i class="bi bi-clock-history me-2"></i>
+                Previous Reports
+            </h6>
+            {% for report in previous_reports %}
+            <div class="p-3 bg-dark rounded mb-2">
+                <div class="d-flex justify-content-between mb-2">
+                    <strong class="small">{{ report.rent_due.month_for|date:"F Y" }}</strong>
+                    {% if report.resolved %}
+                        <span class="badge bg-success">Resolved</span>
+                    {% else %}
+                        <span class="badge bg-warning">Pending</span>
+                    {% endif %}
+                </div>
+                <p class="small text-muted mb-2">{{ report.reason|truncatewords:15 }}</p>
+                <small class="text-muted">
+                    <i class="bi bi-calendar me-1"></i>
+                    {{ report.report_date|date:"M d, Y" }}
+                </small>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Help Card -->
+        <div class="content-card">
+            <h6 class="mb-3">
+                <i class="bi bi-question-circle me-2"></i>
+                Why Report Payment Issues?
+            </h6>
+            <ul class="small mb-0">
+                <li class="mb-2">Shows good faith and responsibility</li>
+                <li class="mb-2">Allows property manager to work with you</li>
+                <li class="mb-2">May help avoid eviction proceedings</li>
+                <li class="mb-2">Creates a record of communication</li>
+                <li>Demonstrates commitment to resolving the issue</li>
+            </ul>
+            
+            <div class="alert alert-warning mt-3 mb-0">
+                <small>
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <strong>Note:</strong> Reporting an issue doesn't guarantee waiver of late fees or prevent legal action if rent remains unpaid.
+                </small>
+            </div>
+        </div>
+
+        <!-- Alternative Options -->
+        <div class="content-card mt-3">
+            <h6 class="mb-3">
+                <i class="bi bi-lightbulb me-2"></i>
+                Alternative Options
+            </h6>
+            <div class="d-grid gap-2">
+                <a href="{% url 'pay_rent' %}" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-credit-card me-2"></i> Make Partial Payment
+                </a>
+                <a href="{% url 'contact_admin' %}" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-telephone me-2"></i> Request Payment Plan
+                </a>
+                <a href="{% url 'help_faq' %}" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-question-circle me-2"></i> View Payment FAQ
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .alert-info {
+        background-color: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: var(--text-primary);
+        border-radius: 0.75rem;
+    }
+    
+    .alert-warning {
+        background-color: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        color: var(--text-primary);
+    }
+    
+    .form-control, .form-select {
+        background-color: var(--card-bg);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        background-color: var(--card-bg);
+        border-color: var(--accent-color);
+        color: var(--text-primary);
+        box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+    }
+    
+    .form-check-input {
+        background-color: var(--card-bg);
+        border-color: var(--border-color);
+    }
+    
+    .form-check-input:checked {
+        background-color: var(--accent-color);
+        border-color: var(--accent-color);
+    }
+</style>
+{% endblock %}

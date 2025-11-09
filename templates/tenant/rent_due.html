@@ -1,0 +1,206 @@
+{% extends 'tenant/tenant_base.html' %}
+{% load static %}
+
+{% block title %}Rent Due{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Rent Due</h1>
+        <p class="page-subtitle">View your rent payment schedule and status</p>
+    </div>
+    <div>
+        <a href="{% url 'pay_rent' %}" class="btn btn-primary me-2">
+            <i class="bi bi-credit-card me-2"></i> Pay Now
+        </a>
+        <a href="{% url 'tenant_dashboard' %}" class="btn btn-outline-light">
+            <i class="bi bi-arrow-left me-2"></i> Back
+        </a>
+    </div>
+</div>
+
+<!-- Statistics -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-value">{{ total_paid }}</div>
+            <div class="stat-label">Months Paid</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="stat-value">{{ total_unpaid }}</div>
+            <div class="stat-label">Outstanding Dues</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="stat-value">${{ active_tenancy.room.monthly_rent }}</div>
+            <div class="stat-label">Monthly Rent</div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Rent Due -->
+{% if current_due %}
+<div class="content-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">
+            <i class="bi bi-calendar-event me-2"></i>
+            Current Month - {{ current_due.month_for|date:"F Y" }}
+        </h5>
+        {% if current_due.status == 'paid' %}
+            <span class="badge bg-success">Paid</span>
+        {% elif current_due.status == 'overdue' %}
+            <span class="badge bg-danger">Overdue</span>
+        {% elif current_due.status == 'partially_paid' %}
+            <span class="badge bg-warning">Partially Paid</span>
+        {% else %}
+            <span class="badge bg-warning">Unpaid</span>
+        {% endif %}
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="p-3 bg-dark rounded">
+                <small class="text-muted d-block mb-1">Amount Due</small>
+                <h4 class="mb-0">${{ current_due.amount_due }}</h4>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="p-3 bg-dark rounded">
+                <small class="text-muted d-block mb-1">Amount Paid</small>
+                <h4 class="mb-0 text-success">${{ current_due.amount_paid }}</h4>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="p-3 bg-dark rounded">
+                <small class="text-muted d-block mb-1">Balance</small>
+                <h4 class="mb-0 {% if current_due.balance > 0 %}text-danger{% else %}text-success{% endif %}">
+                    ${{ current_due.balance }}
+                </h4>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="p-3 bg-dark rounded">
+                <small class="text-muted d-block mb-1">Due Date</small>
+                <h4 class="mb-0">{{ current_due.due_date|date:"M d" }}</h4>
+            </div>
+        </div>
+    </div>
+
+    {% if current_due.balance > 0 %}
+    <div class="mt-3 d-flex gap-2">
+        <a href="{% url 'pay_rent' %}" class="btn btn-primary">
+            <i class="bi bi-credit-card me-2"></i> Pay Now
+        </a>
+        {% if not current_due.reported_to_office %}
+        <a href="{% url 'report_payment_issue' %}" class="btn btn-outline-warning">
+            <i class="bi bi-exclamation-circle me-2"></i> Report Payment Issue
+        </a>
+        {% else %}
+        <button class="btn btn-outline-secondary" disabled>
+            <i class="bi bi-check-circle me-2"></i> Issue Reported
+        </button>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Rent Due History -->
+<div class="content-card">
+    <h5 class="mb-4">Payment History</h5>
+    
+    {% if rent_dues %}
+    <div class="table-responsive">
+        <table class="table table-dark table-hover">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Due Date</th>
+                    <th>Amount Due</th>
+                    <th>Amount Paid</th>
+                    <th>Balance</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for due in rent_dues %}
+                <tr>
+                    <td class="fw-semibold">{{ due.month_for|date:"F Y" }}</td>
+                    <td>{{ due.due_date|date:"M d, Y" }}</td>
+                    <td>${{ due.amount_due }}</td>
+                    <td class="text-success">${{ due.amount_paid }}</td>
+                    <td class="{% if due.balance > 0 %}text-danger{% else %}text-success{% endif %}">
+                        ${{ due.balance }}
+                    </td>
+                    <td>
+                        {% if due.status == 'paid' %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle"></i> Paid
+                            </span>
+                        {% elif due.status == 'overdue' %}
+                            <span class="badge bg-danger">
+                                <i class="bi bi-exclamation-triangle"></i> Overdue
+                            </span>
+                        {% elif due.status == 'partially_paid' %}
+                            <span class="badge bg-warning">
+                                <i class="bi bi-hourglass-split"></i> Partial
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary">
+                                <i class="bi bi-clock"></i> Unpaid
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if due.balance > 0 %}
+                        <a href="{% url 'pay_rent' %}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-credit-card"></i> Pay
+                        </a>
+                        {% else %}
+                        <button class="btn btn-sm btn-success" disabled>
+                            <i class="bi bi-check"></i> Paid
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-inbox" style="font-size: 3rem; color: var(--text-muted);"></i>
+        <p class="text-muted mt-3">No rent dues available yet.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .table-dark tbody tr:hover {
+        background-color: rgba(99, 102, 241, 0.1);
+    }
+</style>
+{% endblock %}

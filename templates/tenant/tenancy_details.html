@@ -1,0 +1,231 @@
+{% extends 'tenant/tenant_base.html' %}
+{% load static %}
+
+{% block title %}Tenancy Details{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Tenancy Details</h1>
+        <p class="page-subtitle">View your current and past tenancy information</p>
+    </div>
+    <a href="{% url 'tenant_dashboard' %}" class="btn btn-outline-light">
+        <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+    </a>
+</div>
+
+<!-- Active Tenancy -->
+{% if active_tenancy %}
+<div class="content-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="mb-0">
+            <i class="bi bi-house-check me-2 text-success"></i>
+            Current Tenancy
+        </h4>
+        <span class="badge bg-success">Active</span>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <h6 class="text-muted mb-3">Property Information</h6>
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                <span class="text-muted">Apartment:</span>
+                <span class="fw-semibold">{{ active_tenancy.apartment.name }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                <span class="text-muted">Room Number:</span>
+                <span class="fw-semibold">{{ active_tenancy.room.room_number }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                <span class="text-muted">Room Type:</span>
+                <span class="fw-semibold">{{ active_tenancy.room.room_type.get_name_display }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                <span class="text-muted">Floor:</span>
+                <span class="fw-semibold">{{ active_tenancy.room.floor_number }}</span>
+            </div>
+            <div class="d-flex justify-content-between">
+                <span class="text-muted">Location:</span>
+                <span class="fw-semibold">{{ active_tenancy.apartment.location }}</span>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <h6 class="text-muted mb-3">Tenancy Information</h6>
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                <span class="text-muted">Start Date:</span>
+                <span class="fw-semibold">{{ active_tenancy.start_date|date:"M d, Y" }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                <span class="text-muted">Duration:</span>
+                <span class="fw-semibold">{{ active_tenancy.start_date|timesince }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                <span class="text-muted">Monthly Rent:</span>
+                <span class="fw-semibold text-success">${{ active_tenancy.room.monthly_rent }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                <span class="text-muted">Deposit Paid:</span>
+                <span class="fw-semibold">${{ active_tenancy.deposit_paid }}</span>
+            </div>
+            <div class="d-flex justify-content-between">
+                <span class="text-muted">Status:</span>
+                <span class="badge bg-success">{{ active_tenancy.get_status_display }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move-in Condition -->
+    <div class="mt-3">
+        <h6 class="text-muted mb-3">Move-in Condition</h6>
+        <div class="p-3 bg-dark rounded">
+            {% if active_tenancy.move_in_condition %}
+                <p class="mb-0">{{ active_tenancy.move_in_condition }}</p>
+            {% else %}
+                <p class="mb-0 text-muted">No move-in condition recorded.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="mt-4 d-flex gap-2">
+        <a href="{% url 'my_room' %}" class="btn btn-primary">
+            <i class="bi bi-door-open me-2"></i> View Room Details
+        </a>
+        <a href="{% url 'deposit_info' %}" class="btn btn-outline-light">
+            <i class="bi bi-piggy-bank me-2"></i> View Deposit Info
+        </a>
+        <a href="{% url 'contact_admin' %}" class="btn btn-outline-light">
+            <i class="bi bi-chat-dots me-2"></i> Contact Admin
+        </a>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    You don't have an active tenancy at the moment.
+</div>
+{% endif %}
+
+<!-- Tenancy History -->
+{% if tenancy_history %}
+<div class="content-card">
+    <h4 class="mb-4">
+        <i class="bi bi-clock-history me-2"></i>
+        Tenancy History
+    </h4>
+
+    <div class="table-responsive">
+        <table class="table table-dark table-hover">
+            <thead>
+                <tr>
+                    <th>Property</th>
+                    <th>Room</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Duration</th>
+                    <th>Monthly Rent</th>
+                    <th>Status</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tenancy in tenancy_history %}
+                <tr>
+                    <td class="fw-semibold">{{ tenancy.apartment.name }}</td>
+                    <td>{{ tenancy.room.room_number }}</td>
+                    <td>{{ tenancy.start_date|date:"M d, Y" }}</td>
+                    <td>
+                        {% if tenancy.end_date %}
+                            {{ tenancy.end_date|date:"M d, Y" }}
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tenancy.end_date %}
+                            {% widthratio tenancy.end_date.toordinal tenancy.start_date.toordinal 1 as days %}
+                            {{ days|default:"0" }} days
+                        {% else %}
+                            <span class="text-muted">Ongoing</span>
+                        {% endif %}
+                    </td>
+                    <td>${{ tenancy.room.monthly_rent }}</td>
+                    <td>
+                        {% if tenancy.status == 'terminated' %}
+                            <span class="badge bg-danger">Terminated</span>
+                        {% elif tenancy.status == 'switched' %}
+                            <span class="badge bg-info">Switched Room</span>
+                        {% elif tenancy.status == 'suspended' %}
+                            <span class="badge bg-warning">Suspended</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ tenancy.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tenancy.termination_reason %}
+                            <small class="text-muted">{{ tenancy.get_termination_reason_display }}</small>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Important Information -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="content-card">
+            <h6 class="mb-3">
+                <i class="bi bi-info-circle me-2"></i>
+                Tenancy Agreement
+            </h6>
+            <p class="small text-muted mb-3">
+                Your tenancy agreement includes the following key terms:
+            </p>
+            <ul class="small">
+                <li>Rent is due on the 3rd of every month</li>
+                <li>Deposit is refundable upon satisfactory room condition at move-out</li>
+                <li>30 days notice required for tenancy termination</li>
+                <li>Tenant is responsible for utility bills (water & electricity)</li>
+                <li>No subletting without landlord approval</li>
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="content-card">
+            <h6 class="mb-3">
+                <i class="bi bi-telephone me-2"></i>
+                Need Help?
+            </h6>
+            <p class="small text-muted mb-3">
+                If you have questions about your tenancy or need to make changes:
+            </p>
+            <div class="d-grid gap-2">
+                <a href="{% url 'contact_admin' %}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-chat-dots me-2"></i> Contact Property Manager
+                </a>
+                <a href="{% url 'help_faq' %}" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-question-circle me-2"></i> View FAQ
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .alert-warning {
+        background-color: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        color: var(--warning-color);
+        border-radius: 0.75rem;
+    }
+</style>
+{% endblock %}

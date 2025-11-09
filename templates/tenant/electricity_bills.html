@@ -1,0 +1,343 @@
+{% extends 'tenant/tenant_base.html' %}
+{% load static %}
+
+{% block title %}Electricity Bills{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-lightning me-2"></i>
+            Electricity Bills
+        </h1>
+        <p class="page-subtitle">View your electricity token purchases and consumption</p>
+    </div>
+    <a href="{% url 'tenant_dashboard' %}" class="btn btn-outline-light">
+        <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+    </a>
+</div>
+
+<!-- Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="stat-value">{{ total_bills }}</div>
+            <div class="stat-label">Total Purchases</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="bi bi-lightning-charge"></i>
+            </div>
+            <div class="stat-value">{{ total_units }}</div>
+            <div class="stat-label">Total Units</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="bi bi-cash-stack"></i>
+            </div>
+            <div class="stat-value">${{ total_amount }}</div>
+            <div class="stat-label">Total Spent</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i class="bi bi-graph-up"></i>
+            </div>
+            <div class="stat-value">
+                {% if bills %}
+                    {{ bills.0.units_purchased|floatformat:0 }}
+                {% else %}
+                    0
+                {% endif %}
+            </div>
+            <div class="stat-label">Last Purchase</div>
+        </div>
+    </div>
+</div>
+
+<!-- Electricity Bills List -->
+<div class="content-card">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h5 class="mb-0">Token Purchase History</h5>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#buyTokenModal">
+            <i class="bi bi-plus-circle me-2"></i> Buy Token
+        </button>
+    </div>
+
+    {% if bills %}
+    <div class="table-responsive">
+        <table class="table table-dark table-hover">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Purchase Date</th>
+                    <th>Units Purchased</th>
+                    <th>Amount Paid</th>
+                    <th>Token Number</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bill in bills %}
+                <tr>
+                    <td class="fw-semibold">{{ bill.bill_month|date:"F Y" }}</td>
+                    <td>{{ bill.purchase_date|date:"M d, Y H:i" }}</td>
+                    <td class="text-warning fw-semibold">
+                        <i class="bi bi-lightning-charge"></i>
+                        {{ bill.units_purchased }} units
+                    </td>
+                    <td>${{ bill.amount }}</td>
+                    <td>
+                        <code class="token-code">{{ bill.token_number }}</code>
+                        <button class="btn btn-sm btn-link p-0 ms-2" 
+                                onclick="copyToken('{{ bill.token_number }}')"
+                                title="Copy token">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </td>
+                    <td>
+                        {% if bill.status == 'paid' %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle"></i> Paid
+                            </span>
+                        {% else %}
+                            <span class="badge bg-warning">{{ bill.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-light" 
+                                onclick="viewToken('{{ bill.token_number }}', '{{ bill.units_purchased }}', '{{ bill.purchase_date|date:"M d, Y" }}')">
+                            <i class="bi bi-eye"></i> View
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Consumption Analysis -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="p-3 bg-dark rounded">
+                <h6 class="text-muted mb-3">Monthly Consumption Trend</h6>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="small">Average Monthly Units:</span>
+                    <strong class="text-primary">
+                        {% widthratio total_units total_bills 1 %} units
+                    </strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="small">Average Monthly Cost:</span>
+                    <strong class="text-success">
+                        ${% widthratio total_amount total_bills 1 %}
+                    </strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="small">Last 3 Months Average:</span>
+                    <strong>
+                        {% if bills|slice:":3" %}
+                            {{ bills.0.units_purchased|floatformat:0 }} units
+                        {% else %}
+                            0 units
+                        {% endif %}
+                    </strong>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="p-3 bg-dark rounded">
+                <h6 class="text-muted mb-3">Energy Saving Tips</h6>
+                <ul class="small mb-0">
+                    <li class="mb-1">Turn off lights when leaving rooms</li>
+                    <li class="mb-1">Unplug devices when not in use</li>
+                    <li class="mb-1">Use energy-efficient bulbs</li>
+                    <li>Avoid using high-power appliances during peak hours</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-lightning" style="font-size: 4rem; color: var(--text-muted); opacity: 0.3;"></i>
+        <p class="text-muted mt-3 mb-0">No electricity purchases yet.</p>
+        <small class="text-muted">Your token purchases will appear here.</small>
+        <div class="mt-3">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#buyTokenModal">
+                <i class="bi bi-lightning-charge me-2"></i> Buy Your First Token
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Info Card -->
+<div class="alert alert-info mt-4">
+    <div class="d-flex">
+        <i class="bi bi-info-circle me-3" style="font-size: 1.5rem;"></i>
+        <div>
+            <h6 class="mb-2">About Electricity Tokens</h6>
+            <ul class="mb-0 small">
+                <li>Electricity is prepaid using token numbers</li>
+                <li>Purchase tokens through the portal or via M-Pesa</li>
+                <li>Tokens are sent to your phone immediately after payment</li>
+                <li>Enter the token on your meter to load units</li>
+                <li>Keep your token numbers for record purposes</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Buy Token Modal -->
+<div class="modal fade" id="buyTokenModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background-color: var(--card-bg); color: var(--text-primary);">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">
+                    <i class="bi bi-lightning-charge me-2"></i>
+                    Buy Electricity Token
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="buyTokenForm">
+                    <div class="mb-3">
+                        <label for="units" class="form-label">Number of Units</label>
+                        <input type="number" class="form-control" id="units" 
+                               placeholder="e.g., 50" min="10" required>
+                        <small class="text-muted">Minimum 10 units</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Estimated Cost</label>
+                        <div class="p-3 bg-dark rounded">
+                            <h4 class="mb-0 text-success" id="estimatedCost">$0.00</h4>
+                            <small class="text-muted">Rate: $5.00 per unit</small>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phoneNumber" class="form-label">M-Pesa Phone Number</label>
+                        <input type="tel" class="form-control" id="phoneNumber" 
+                               placeholder="254712345678" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="processPurchase()">
+                    <i class="bi bi-credit-card me-2"></i> Pay via M-Pesa
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Token View Modal -->
+<div class="modal fade" id="tokenModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background-color: var(--card-bg); color: var(--text-primary);">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Token Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <i class="bi bi-lightning-charge text-warning" style="font-size: 3rem;"></i>
+                </div>
+                <h3 class="mb-3" id="modalToken" style="font-family: 'Courier New', monospace;"></h3>
+                <div class="d-flex justify-content-around mb-3">
+                    <div>
+                        <small class="text-muted d-block">Units</small>
+                        <strong id="modalUnits"></strong>
+                    </div>
+                    <div>
+                        <small class="text-muted d-block">Purchase Date</small>
+                        <strong id="modalDate"></strong>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="copyTokenFromModal()">
+                    <i class="bi bi-clipboard me-2"></i> Copy Token
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentToken = '';
+
+function copyToken(token) {
+    navigator.clipboard.writeText(token).then(() => {
+        // Show toast notification
+        alert('Token copied to clipboard: ' + token);
+    });
+}
+
+function viewToken(token, units, date) {
+    currentToken = token;
+    document.getElementById('modalToken').textContent = token;
+    document.getElementById('modalUnits').textContent = units + ' units';
+    document.getElementById('modalDate').textContent = date;
+    new bootstrap.Modal(document.getElementById('tokenModal')).show();
+}
+
+function copyTokenFromModal() {
+    copyToken(currentToken);
+}
+
+// Calculate estimated cost
+document.getElementById('units')?.addEventListener('input', function() {
+    const units = parseFloat(this.value) || 0;
+    const rate = 5.00; // Rate per unit
+    const cost = (units * rate).toFixed(2);
+    document.getElementById('estimatedCost').textContent = '$' + cost;
+});
+
+function processPurchase() {
+    const units = document.getElementById('units').value;
+    const phone = document.getElementById('phoneNumber').value;
+    
+    if (!units || !phone) {
+        alert('Please fill in all fields');
+        return;
+    }
+    
+    // In production, this would process the M-Pesa payment
+    alert('Processing purchase of ' + units + ' units...\nM-Pesa prompt will be sent to ' + phone);
+    // Close modal and refresh page
+    bootstrap.Modal.getInstance(document.getElementById('buyTokenModal')).hide();
+}
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .token-code {
+        background-color: rgba(245, 158, 11, 0.1);
+        color: var(--warning-color);
+        padding: 0.3rem 0.6rem;
+        border-radius: 0.375rem;
+        font-size: 0.9em;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 1px;
+    }
+    
+    .alert-info {
+        background-color: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: var(--text-primary);
+        border-radius: 0.75rem;
+    }
+</style>
+{% endblock %}

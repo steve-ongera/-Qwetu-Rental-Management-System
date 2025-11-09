@@ -1,0 +1,337 @@
+{% extends 'tenant/tenant_base.html' %}
+{% load static %}
+
+{% block title %}Pay Rent{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-credit-card me-2"></i>
+            Pay Rent
+        </h1>
+        <p class="page-subtitle">Make your rent payment quickly and securely</p>
+    </div>
+    <a href="{% url 'tenant_dashboard' %}" class="btn btn-outline-light">
+        <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="row">
+    <!-- Payment Form -->
+    <div class="col-lg-7">
+        <div class="content-card">
+            <h5 class="mb-4">Select Payment Method</h5>
+
+            <!-- Payment Method Selection -->
+            <div class="payment-methods mb-4">
+                <div class="payment-method active" data-method="mpesa">
+                    <div class="d-flex align-items-center">
+                        <div class="payment-icon bg-success bg-opacity-10 rounded me-3">
+                            <i class="bi bi-phone text-success" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <strong>M-Pesa STK Push</strong>
+                            <p class="small text-muted mb-0">Pay instantly via M-Pesa</p>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="payment_method" id="mpesa" value="mpesa" checked>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="payment-method" data-method="bank">
+                    <div class="d-flex align-items-center">
+                        <div class="payment-icon bg-primary bg-opacity-10 rounded me-3">
+                            <i class="bi bi-bank text-primary" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <strong>Bank Transfer</strong>
+                            <p class="small text-muted mb-0">Transfer to bank account</p>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="payment_method" id="bank" value="bank_transfer">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="payment-method" data-method="cash">
+                    <div class="d-flex align-items-center">
+                        <div class="payment-icon bg-warning bg-opacity-10 rounded me-3">
+                            <i class="bi bi-cash text-warning" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <strong>Cash Payment</strong>
+                            <p class="small text-muted mb-0">Pay at the office</p>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="payment_method" id="cash" value="cash">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Form -->
+            <form method="POST" id="paymentForm">
+                {% csrf_token %}
+                
+                <!-- M-Pesa Form -->
+                <div id="mpesaForm" class="payment-form-section">
+                    <h6 class="mb-3">M-Pesa Payment Details</h6>
+                    <div class="mb-3">
+                        <label for="mpesaPhone" class="form-label">M-Pesa Phone Number</label>
+                        <input type="tel" class="form-control" id="mpesaPhone" name="mpesa_phone" 
+                               placeholder="254712345678" pattern="[0-9]{12}" required>
+                        <small class="text-muted">Enter your M-Pesa registered phone number</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="rentDue" class="form-label">Select Month to Pay</label>
+                        <select class="form-select" id="rentDue" name="rent_due" required>
+                            <option value="">-- Select Month --</option>
+                            {% for due in unpaid_dues %}
+                            <option value="{{ due.id }}" data-amount="{{ due.balance }}">
+                                {{ due.month_for|date:"F Y" }} - ${{ due.balance }}
+                                {% if due.status == 'overdue' %}(OVERDUE){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount to Pay</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="amount" name="amount" 
+                                   step="0.01" min="0" required>
+                        </div>
+                        <small class="text-muted">Enter amount to pay (can be partial payment)</small>
+                    </div>
+                </div>
+
+                <!-- Bank Transfer Form -->
+                <div id="bankForm" class="payment-form-section" style="display: none;">
+                    <h6 class="mb-3">Bank Transfer Instructions</h6>
+                    <div class="alert alert-info">
+                        <h6 class="mb-2">Bank Account Details</h6>
+                        <div class="mb-2">
+                            <strong>Bank Name:</strong> Example Bank Ltd<br>
+                            <strong>Account Name:</strong> {{ active_tenancy.apartment.owner.get_full_name }}<br>
+                            <strong>Account Number:</strong> 1234567890<br>
+                            <strong>Branch:</strong> Main Branch
+                        </div>
+                        <small class="text-warning">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            After transfer, upload proof of payment below
+                        </small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="transactionRef" class="form-label">Transaction Reference</label>
+                        <input type="text" class="form-control" id="transactionRef" name="transaction_ref" 
+                               placeholder="Enter bank transaction reference">
+                    </div>
+                    <div class="mb-3">
+                        <label for="proofOfPayment" class="form-label">Upload Proof of Payment</label>
+                        <input type="file" class="form-control" id="proofOfPayment" name="proof" 
+                               accept="image/*,.pdf">
+                    </div>
+                </div>
+
+                <!-- Cash Payment Form -->
+                <div id="cashForm" class="payment-form-section" style="display: none;">
+                    <div class="alert alert-warning">
+                        <h6 class="mb-2">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Cash Payment Instructions
+                        </h6>
+                        <p class="mb-2">Please visit the property office during business hours:</p>
+                        <ul class="mb-2">
+                            <li>Monday - Friday: 8:00 AM - 5:00 PM</li>
+                            <li>Saturday: 9:00 AM - 1:00 PM</li>
+                            <li>Sunday: Closed</li>
+                        </ul>
+                        <p class="mb-0 small">
+                            Remember to bring your tenant ID or lease agreement for verification.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                        <i class="bi bi-send me-2"></i> Process Payment
+                    </button>
+                    <a href="{% url 'report_payment_issue' %}" class="btn btn-outline-light">
+                        <i class="bi bi-exclamation-circle me-2"></i> Having Payment Issues?
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Payment Summary -->
+    <div class="col-lg-5">
+        <!-- Outstanding Dues -->
+        <div class="content-card mb-3">
+            <h6 class="mb-3">
+                <i class="bi bi-list-check me-2"></i>
+                Outstanding Dues
+            </h6>
+            {% if unpaid_dues %}
+                {% for due in unpaid_dues %}
+                <div class="p-3 bg-dark rounded mb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>{{ due.month_for|date:"F Y" }}</strong>
+                        {% if due.status == 'overdue' %}
+                            <span class="badge bg-danger">OVERDUE</span>
+                        {% else %}
+                            <span class="badge bg-warning">PENDING</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex justify-content-between text-muted small mb-1">
+                        <span>Amount Due:</span>
+                        <span>${{ due.amount_due }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted small mb-1">
+                        <span>Amount Paid:</span>
+                        <span class="text-success">${{ due.amount_paid }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between small">
+                        <span>Balance:</span>
+                        <strong class="text-danger">${{ due.balance }}</strong>
+                    </div>
+                    <div class="mt-2 pt-2 border-top border-secondary">
+                        <small class="text-muted">
+                            <i class="bi bi-calendar me-1"></i>
+                            Due: {{ due.due_date|date:"M d, Y" }}
+                        </small>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i>
+                    <p class="text-muted mt-2 mb-0">No outstanding dues</p>
+                    <small class="text-muted">You're all caught up!</small>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Payment Tips -->
+        <div class="content-card">
+            <h6 class="mb-3">
+                <i class="bi bi-lightbulb me-2"></i>
+                Payment Tips
+            </h6>
+            <ul class="small mb-0">
+                <li class="mb-2">Pay before the 3rd of each month to avoid late fees</li>
+                <li class="mb-2">M-Pesa payments are processed instantly</li>
+                <li class="mb-2">Keep your payment receipts for records</li>
+                <li class="mb-2">You can make partial payments if needed</li>
+                <li>Contact admin if you anticipate payment delays</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Payment method switching
+    const paymentMethods = document.querySelectorAll('.payment-method');
+    const mpesaForm = document.getElementById('mpesaForm');
+    const bankForm = document.getElementById('bankForm');
+    const cashForm = document.getElementById('cashForm');
+    
+    paymentMethods.forEach(method => {
+        method.addEventListener('click', function() {
+            paymentMethods.forEach(m => m.classList.remove('active'));
+            this.classList.add('active');
+            this.querySelector('input[type="radio"]').checked = true;
+            
+            const selectedMethod = this.dataset.method;
+            mpesaForm.style.display = 'none';
+            bankForm.style.display = 'none';
+            cashForm.style.display = 'none';
+            
+            if (selectedMethod === 'mpesa') {
+                mpesaForm.style.display = 'block';
+            } else if (selectedMethod === 'bank') {
+                bankForm.style.display = 'block';
+            } else if (selectedMethod === 'cash') {
+                cashForm.style.display = 'block';
+            }
+        });
+    });
+    
+    // Auto-fill amount based on selected rent due
+    const rentDueSelect = document.getElementById('rentDue');
+    const amountInput = document.getElementById('amount');
+    
+    if (rentDueSelect && amountInput) {
+        rentDueSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const amount = selectedOption.dataset.amount;
+            if (amount) {
+                amountInput.value = amount;
+            }
+        });
+    }
+    
+    // Form submission
+    document.getElementById('paymentForm').addEventListener('submit', function(e) {
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+    });
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .payment-method {
+        padding: 1rem;
+        border: 2px solid var(--border-color);
+        border-radius: 0.75rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .payment-method:hover {
+        background-color: rgba(99, 102, 241, 0.05);
+        border-color: var(--accent-color);
+    }
+    
+    .payment-method.active {
+        background-color: rgba(99, 102, 241, 0.1);
+        border-color: var(--accent-color);
+    }
+    
+    .payment-icon {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .form-control, .form-select {
+        background-color: var(--card-bg);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        background-color: var(--card-bg);
+        border-color: var(--accent-color);
+        color: var(--text-primary);
+        box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+    }
+    
+    .input-group-text {
+        background-color: var(--card-bg);
+        border-color: var(--border-color);
+        color: var(--text-secondary);
+    }
+</style>
+{% endblock %}

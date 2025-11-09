@@ -1,0 +1,228 @@
+{% extends 'tenant/tenant_base.html' %}
+{% load static %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-bell me-2"></i>
+            Notifications
+        </h1>
+        <p class="page-subtitle">Stay updated with important messages and alerts</p>
+    </div>
+    <div>
+        {% if unread_count > 0 %}
+        <form method="POST" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="mark_all_read" value="1">
+            <button type="submit" class="btn btn-outline-light">
+                <i class="bi bi-check-all me-2"></i> Mark All Read
+            </button>
+        </form>
+        {% endif %}
+        <a href="{% url 'tenant_dashboard' %}" class="btn btn-outline-light ms-2">
+            <i class="bi bi-arrow-left me-2"></i> Back
+        </a>
+    </div>
+</div>
+
+<!-- Unread Count -->
+{% if unread_count > 0 %}
+<div class="alert alert-primary mb-4">
+    <i class="bi bi-info-circle me-2"></i>
+    You have <strong>{{ unread_count }}</strong> unread notification{{ unread_count|pluralize }}.
+</div>
+{% endif %}
+
+<!-- Notifications List -->
+<div class="content-card">
+    {% if all_notifications %}
+    <div class="notifications-list">
+        {% for notification in all_notifications %}
+        <div class="notification-item {% if not notification.is_read %}unread{% endif %} p-3 border-bottom border-secondary">
+            <div class="d-flex align-items-start">
+                <!-- Icon based on notification type -->
+                <div class="notification-icon me-3">
+                    {% if notification.notification_type == 'rent_due' %}
+                        <div class="bg-warning bg-opacity-10 rounded-circle p-2">
+                            <i class="bi bi-calendar-check text-warning" style="font-size: 1.5rem;"></i>
+                        </div>
+                    {% elif notification.notification_type == 'payment_received' %}
+                        <div class="bg-success bg-opacity-10 rounded-circle p-2">
+                            <i class="bi bi-check-circle text-success" style="font-size: 1.5rem;"></i>
+                        </div>
+                    {% elif notification.notification_type == 'payment_overdue' %}
+                        <div class="bg-danger bg-opacity-10 rounded-circle p-2">
+                            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 1.5rem;"></i>
+                        </div>
+                    {% elif notification.notification_type == 'water_bill' %}
+                        <div class="bg-primary bg-opacity-10 rounded-circle p-2">
+                            <i class="bi bi-droplet text-primary" style="font-size: 1.5rem;"></i>
+                        </div>
+                    {% elif notification.notification_type == 'maintenance' %}
+                        <div class="bg-info bg-opacity-10 rounded-circle p-2">
+                            <i class="bi bi-tools text-info" style="font-size: 1.5rem;"></i>
+                        </div>
+                    {% else %}
+                        <div class="bg-secondary bg-opacity-10 rounded-circle p-2">
+                            <i class="bi bi-bell text-secondary" style="font-size: 1.5rem;"></i>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Notification Content -->
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <h6 class="mb-0 {% if not notification.is_read %}fw-bold{% endif %}">
+                            {{ notification.title }}
+                            {% if not notification.is_read %}
+                            <span class="badge bg-primary ms-2">New</span>
+                            {% endif %}
+                        </h6>
+                        <small class="text-muted">{{ notification.created_at|timesince }} ago</small>
+                    </div>
+                    <p class="mb-2 text-muted">{{ notification.message }}</p>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-2">
+                        {% if not notification.is_read %}
+                        <form method="POST" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="notification_id" value="{{ notification.id }}">
+                            <button type="submit" class="btn btn-sm btn-outline-light">
+                                <i class="bi bi-check me-1"></i> Mark as Read
+                            </button>
+                        </form>
+                        {% endif %}
+                        
+                        <!-- Context-specific actions -->
+                        {% if notification.notification_type == 'rent_due' %}
+                        <a href="{% url 'pay_rent' %}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-credit-card me-1"></i> Pay Now
+                        </a>
+                        {% elif notification.notification_type == 'water_bill' %}
+                        <a href="{% url 'water_bills' %}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-droplet me-1"></i> View Bills
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination (if needed) -->
+    {% if all_notifications.count > 20 %}
+    <div class="text-center mt-4">
+        <button class="btn btn-outline-light">
+            <i class="bi bi-arrow-down me-2"></i> Load More
+        </button>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-5">
+        <i class="bi bi-bell-slash" style="font-size: 4rem; color: var(--text-muted); opacity: 0.3;"></i>
+        <p class="text-muted mt-3 mb-0">No notifications yet.</p>
+        <small class="text-muted">You'll see important updates and alerts here.</small>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Notification Categories Info -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="content-card">
+            <h6 class="mb-3">Notification Types</h6>
+            <div class="d-flex align-items-center mb-2">
+                <i class="bi bi-calendar-check text-warning me-2"></i>
+                <span class="small">Rent Due Reminders</span>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <i class="bi bi-check-circle text-success me-2"></i>
+                <span class="small">Payment Confirmations</span>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <i class="bi bi-exclamation-triangle text-danger me-2"></i>
+                <span class="small">Overdue Alerts</span>
+            </div>
+            <div class="d-flex align-items-center mb-2">
+                <i class="bi bi-droplet text-primary me-2"></i>
+                <span class="small">Utility Bill Updates</span>
+            </div>
+            <div class="d-flex align-items-center">
+                <i class="bi bi-tools text-info me-2"></i>
+                <span class="small">Maintenance Updates</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="content-card">
+            <h6 class="mb-3">Notification Settings</h6>
+            <p class="small text-muted mb-3">Customize how you receive notifications</p>
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                <label class="form-check-label small" for="emailNotifications">
+                    Email Notifications
+                </label>
+            </div>
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="smsNotifications" checked>
+                <label class="form-check-label small" for="smsNotifications">
+                    SMS Notifications
+                </label>
+            </div>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="pushNotifications" checked>
+                <label class="form-check-label small" for="pushNotifications">
+                    Push Notifications
+                </label>
+            </div>
+            <button class="btn btn-sm btn-primary mt-3">
+                <i class="bi bi-save me-1"></i> Save Preferences
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notification-item {
+        transition: all 0.3s ease;
+    }
+
+    .notification-item:hover {
+        background-color: rgba(99, 102, 241, 0.05);
+    }
+
+    .notification-item.unread {
+        background-color: rgba(99, 102, 241, 0.05);
+        border-left: 3px solid var(--accent-color);
+    }
+
+    .notification-item:last-child {
+        border-bottom: none !important;
+    }
+
+    .notification-icon {
+        flex-shrink: 0;
+    }
+
+    .alert-primary {
+        background-color: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: var(--text-primary);
+        border-radius: 0.75rem;
+    }
+
+    .form-check-input:checked {
+        background-color: var(--accent-color);
+        border-color: var(--accent-color);
+    }
+</style>
+{% endblock %}

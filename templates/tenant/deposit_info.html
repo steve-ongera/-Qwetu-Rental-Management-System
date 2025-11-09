@@ -1,0 +1,327 @@
+{% extends 'tenant/tenant_base.html' %}
+{% load static %}
+
+{% block title %}Deposit Information{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-piggy-bank me-2"></i>
+            Deposit Information
+        </h1>
+        <p class="page-subtitle">View your security deposit details and history</p>
+    </div>
+    <a href="{% url 'tenant_dashboard' %}" class="btn btn-outline-light">
+        <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+    </a>
+</div>
+
+<!-- Current Deposit -->
+{% if active_tenancy %}
+<div class="content-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="mb-0">Current Deposit Status</h4>
+        {% if active_tenancy.deposit_refunded %}
+            <span class="badge bg-success">Refunded</span>
+        {% else %}
+            <span class="badge bg-primary">Held</span>
+        {% endif %}
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon primary">
+                    <i class="bi bi-cash-coin"></i>
+                </div>
+                <div class="stat-value">${{ active_tenancy.deposit_paid }}</div>
+                <div class="stat-label">Deposit Paid</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon success">
+                    <i class="bi bi-building"></i>
+                </div>
+                <div class="stat-value">{{ active_tenancy.apartment.name }}</div>
+                <div class="stat-label">Property</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon warning">
+                    <i class="bi bi-door-open"></i>
+                </div>
+                <div class="stat-value">Room {{ active_tenancy.room.room_number }}</div>
+                <div class="stat-label">Your Room</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon {% if active_tenancy.deposit_refunded %}success{% else %}primary{% endif %}">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+                <div class="stat-value">
+                    {% if active_tenancy.deposit_refunded %}
+                        Refunded
+                    {% else %}
+                        Secured
+                    {% endif %}
+                </div>
+                <div class="stat-label">Status</div>
+            </div>
+        </div>
+    </div>
+
+    {% if active_tenancy.deposit_refunded %}
+    <!-- Refund Details -->
+    <div class="alert alert-success mb-0">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-check-circle me-3" style="font-size: 1.5rem;"></i>
+            <div class="flex-grow-1">
+                <h6 class="mb-2">Deposit Refunded</h6>
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <small class="text-muted d-block">Refund Amount</small>
+                        <strong>${{ active_tenancy.deposit_refund_amount|default:active_tenancy.deposit_paid }}</strong>
+                    </div>
+                    {% if active_tenancy.deposit_deduction_reason %}
+                    <div class="col-md-6 mb-2">
+                        <small class="text-muted d-block">Deduction Reason</small>
+                        <p class="small mb-0">{{ active_tenancy.deposit_deduction_reason }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Deposit Info -->
+    <div class="p-3 bg-dark rounded">
+        <h6 class="mb-3">Deposit Terms</h6>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Amount Paid:</span>
+                    <span class="fw-semibold">${{ active_tenancy.deposit_paid }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Required Deposit:</span>
+                    <span class="fw-semibold">${{ active_tenancy.room.deposit_amount }}</span>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Date Paid:</span>
+                    <span class="fw-semibold">{{ active_tenancy.start_date|date:"M d, Y" }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Refundable:</span>
+                    <span class="fw-semibold text-success">
+                        <i class="bi bi-check-circle"></i> Yes
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Deposit History -->
+{% if all_tenancies %}
+<div class="content-card">
+    <h5 class="mb-4">
+        <i class="bi bi-clock-history me-2"></i>
+        Deposit History
+    </h5>
+
+    <div class="table-responsive">
+        <table class="table table-dark table-hover">
+            <thead>
+                <tr>
+                    <th>Property</th>
+                    <th>Room</th>
+                    <th>Tenancy Period</th>
+                    <th>Deposit Paid</th>
+                    <th>Refund Status</th>
+                    <th>Refund Amount</th>
+                    <th>Deductions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tenancy in all_tenancies %}
+                <tr>
+                    <td class="fw-semibold">{{ tenancy.apartment.name }}</td>
+                    <td>{{ tenancy.room.room_number }}</td>
+                    <td>
+                        <small>
+                            {{ tenancy.start_date|date:"M Y" }}
+                            {% if tenancy.end_date %}
+                                - {{ tenancy.end_date|date:"M Y" }}
+                            {% else %}
+                                - Present
+                            {% endif %}
+                        </small>
+                    </td>
+                    <td>${{ tenancy.deposit_paid }}</td>
+                    <td>
+                        {% if tenancy.deposit_refunded %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle"></i> Refunded
+                            </span>
+                        {% elif tenancy.status == 'active' %}
+                            <span class="badge bg-primary">
+                                <i class="bi bi-shield"></i> Held
+                            </span>
+                        {% else %}
+                            <span class="badge bg-warning">
+                                <i class="bi bi-hourglass-split"></i> Pending
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tenancy.deposit_refunded %}
+                            <span class="text-success">
+                                ${{ tenancy.deposit_refund_amount|default:tenancy.deposit_paid }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tenancy.deposit_refunded and tenancy.deposit_deduction_reason %}
+                            <button class="btn btn-sm btn-outline-light" 
+                                    data-bs-toggle="tooltip" 
+                                    title="{{ tenancy.deposit_deduction_reason }}">
+                                <i class="bi bi-info-circle"></i> View
+                            </button>
+                        {% else %}
+                            <span class="text-muted">None</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Deposit Information Cards -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="content-card">
+            <h6 class="mb-3">
+                <i class="bi bi-info-circle me-2 text-primary"></i>
+                About Security Deposits
+            </h6>
+            <p class="small text-muted mb-3">
+                Your security deposit is held to cover:
+            </p>
+            <ul class="small">
+                <li>Unpaid rent at the end of tenancy</li>
+                <li>Damage to the property beyond normal wear and tear</li>
+                <li>Cleaning costs if room is left in poor condition</li>
+                <li>Unpaid utility bills</li>
+                <li>Other breaches of tenancy agreement</li>
+            </ul>
+            <div class="alert alert-info mt-3 mb-0">
+                <small>
+                    <i class="bi bi-lightbulb me-1"></i>
+                    Keep your room in good condition and pay all bills on time to ensure full deposit refund!
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="content-card">
+            <h6 class="mb-3">
+                <i class="bi bi-list-check me-2 text-success"></i>
+                Deposit Refund Process
+            </h6>
+            <div class="timeline">
+                <div class="timeline-item mb-3">
+                    <div class="d-flex align-items-start">
+                        <div class="bg-primary rounded-circle p-2 me-3" style="width: 32px; height: 32px;">
+                            <small class="text-white fw-bold">1</small>
+                        </div>
+                        <div>
+                            <strong class="small">Give Notice</strong>
+                            <p class="small text-muted mb-0">Provide 30 days written notice before moving out</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="timeline-item mb-3">
+                    <div class="d-flex align-items-start">
+                        <div class="bg-primary rounded-circle p-2 me-3" style="width: 32px; height: 32px;">
+                            <small class="text-white fw-bold">2</small>
+                        </div>
+                        <div>
+                            <strong class="small">Room Inspection</strong>
+                            <p class="small text-muted mb-0">Property manager inspects room condition</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="timeline-item mb-3">
+                    <div class="d-flex align-items-start">
+                        <div class="bg-primary rounded-circle p-2 me-3" style="width: 32px; height: 32px;">
+                            <small class="text-white fw-bold">3</small>
+                        </div>
+                        <div>
+                            <strong class="small">Clear Dues</strong>
+                            <p class="small text-muted mb-0">Settle all outstanding rent and utility bills</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="d-flex align-items-start">
+                        <div class="bg-success rounded-circle p-2 me-3" style="width: 32px; height: 32px;">
+                            <small class="text-white fw-bold">4</small>
+                        </div>
+                        <div>
+                            <strong class="small">Get Refund</strong>
+                            <p class="small text-muted mb-0">Receive deposit refund within 14 days</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Questions -->
+<div class="content-card mt-4">
+    <div class="text-center">
+        <i class="bi bi-question-circle" style="font-size: 3rem; color: var(--accent-color);"></i>
+        <h5 class="mt-3 mb-2">Have Questions About Your Deposit?</h5>
+        <p class="text-muted mb-3">Our property management team is here to help</p>
+        <a href="{% url 'contact_admin' %}" class="btn btn-primary">
+            <i class="bi bi-chat-dots me-2"></i> Contact Property Manager
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .alert-success {
+        background-color: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: var(--text-primary);
+        border-radius: 0.75rem;
+    }
+
+    .alert-info {
+        background-color: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: var(--text-primary);
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-left: 0;
+    }
+</style>
+{% endblock %}

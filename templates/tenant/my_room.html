@@ -1,0 +1,180 @@
+{% extends 'tenant/tenant_base.html' %}
+{% load static %}
+
+{% block title %}My Room{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">My Room</h1>
+        <p class="page-subtitle">Details about your current accommodation</p>
+    </div>
+    <a href="{% url 'tenant_dashboard' %}" class="btn btn-outline-light">
+        <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="row">
+    <!-- Room Details Card -->
+    <div class="col-lg-6">
+        <div class="content-card">
+            <div class="d-flex align-items-center mb-4">
+                <div class="stat-icon primary me-3">
+                    <i class="bi bi-door-open"></i>
+                </div>
+                <div>
+                    <h3 class="mb-0">Room {{ room.room_number }}</h3>
+                    <p class="text-muted mb-0">{{ room.room_type.get_name_display }}</p>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-6">
+                    <div class="p-3 bg-dark rounded">
+                        <small class="text-muted d-block mb-1">Floor</small>
+                        <strong>{{ room.floor_number }}{{ room.floor_number|ordinal|default:"" }} Floor</strong>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-3 bg-dark rounded">
+                        <small class="text-muted d-block mb-1">Monthly Rent</small>
+                        <strong class="text-success">${{ room.monthly_rent }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <h5 class="mb-3">Room Features</h5>
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="d-flex align-items-center p-2 bg-dark rounded">
+                        {% if room.has_balcony %}
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <span>Balcony</span>
+                        {% else %}
+                            <i class="bi bi-x-circle text-danger me-2"></i>
+                            <span class="text-muted">No Balcony</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="d-flex align-items-center p-2 bg-dark rounded">
+                        {% if room.has_shower %}
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <span>Private Shower</span>
+                        {% else %}
+                            <i class="bi bi-x-circle text-danger me-2"></i>
+                            <span class="text-muted">No Shower</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="d-flex align-items-center p-2 bg-dark rounded">
+                        {% if room.has_kitchen_unit %}
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <span>Kitchen Unit</span>
+                        {% else %}
+                            <i class="bi bi-x-circle text-danger me-2"></i>
+                            <span class="text-muted">No Kitchen</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="d-flex align-items-center p-2 bg-dark rounded">
+                        {% if room.has_clothes_cabinet %}
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            <span>Clothes Cabinet</span>
+                        {% else %}
+                            <i class="bi bi-x-circle text-danger me-2"></i>
+                            <span class="text-muted">No Cabinet</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Apartment Details Card -->
+    <div class="col-lg-6">
+        <div class="content-card">
+            <div class="d-flex align-items-center mb-4">
+                <div class="stat-icon success me-3">
+                    <i class="bi bi-building"></i>
+                </div>
+                <div>
+                    <h3 class="mb-0">{{ apartment.name }}</h3>
+                    <p class="text-muted mb-0">Property Information</p>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <h5 class="mb-3">Property Details</h5>
+                <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                    <span class="text-muted">Location</span>
+                    <span class="fw-semibold">{{ apartment.location }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                    <span class="text-muted">Total Floors</span>
+                    <span class="fw-semibold">{{ apartment.total_floors }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2 pb-2 border-bottom border-secondary">
+                    <span class="text-muted">Water Rate</span>
+                    <span class="fw-semibold">${{ apartment.water_rate_per_unit }} per unit</span>
+                </div>
+            </div>
+
+            {% if apartment.description %}
+            <div>
+                <h5 class="mb-3">About This Property</h5>
+                <p class="text-muted">{{ apartment.description }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Move-in Condition Card -->
+        <div class="content-card mt-3">
+            <h5 class="mb-3">
+                <i class="bi bi-clipboard-check me-2"></i>
+                Move-in Condition
+            </h5>
+            {% if active_tenancy.move_in_condition %}
+                <p class="text-muted">{{ active_tenancy.move_in_condition }}</p>
+            {% else %}
+                <p class="text-muted">No move-in condition recorded.</p>
+            {% endif %}
+            
+            <div class="alert alert-info mt-3">
+                <i class="bi bi-info-circle me-2"></i>
+                <small>This record is used to assess room condition at move-out for deposit refund purposes.</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Room Status -->
+<div class="content-card mt-3">
+    <h5 class="mb-3">Current Status</h5>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="p-3 bg-dark rounded text-center">
+                <i class="bi bi-calendar-check text-success" style="font-size: 2rem;"></i>
+                <p class="mt-2 mb-1 text-muted">Tenancy Start</p>
+                <strong>{{ active_tenancy.start_date|date:"M d, Y" }}</strong>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 bg-dark rounded text-center">
+                <i class="bi bi-hourglass-split text-primary" style="font-size: 2rem;"></i>
+                <p class="mt-2 mb-1 text-muted">Months Here</p>
+                <strong>{{ active_tenancy.start_date|timesince|slice:":7" }}</strong>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 bg-dark rounded text-center">
+                <i class="bi bi-shield-check text-warning" style="font-size: 2rem;"></i>
+                <p class="mt-2 mb-1 text-muted">Room Status</p>
+                <strong class="text-success">{{ room.get_status_display }}</strong>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
