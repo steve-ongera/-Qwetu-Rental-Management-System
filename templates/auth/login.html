@@ -12,58 +12,86 @@
     
     <style>
         :root {
-            --primary-color: #2c3e50;
-            --accent-color: #3498db;
-            --hover-color: #2980b9;
+            --sidebar-width: 260px;
+            --header-height: 70px;
+            --primary-color: #1a1d29;
+            --secondary-color: #232834;
+            --accent-color: #6366f1;
+            --accent-hover: #4f46e5;
+            --text-primary: #1a1d29;
+            --text-secondary: #6c757d;
+            --text-muted: #64748b;
+            --border-color: #e9ecef;
+            --card-bg: #ffffff;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --light-bg: #f8f9fa;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f8fafc;
             min-height: 100vh;
             display: flex;
             align-items: center;
-            justify-content: center;
             padding: 20px;
+            color: var(--text-primary);
         }
 
         .login-container {
             width: 100%;
-            max-width: 450px;
+            max-width: 440px;
+            margin: 0 auto;
         }
 
         .login-card {
             background: white;
-            border-radius: 1rem;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
             overflow: hidden;
+            border: 1px solid var(--border-color);
         }
 
         .login-header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
-            color: white;
-            padding: 2.5rem 2rem;
+            background: white;
+            color: var(--text-primary);
+            padding: 2.5rem 2rem 1.5rem;
             text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .login-header .logo-container {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: rgba(99, 102, 241, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.25rem;
         }
 
         .login-header i {
-            font-size: 3rem;
-            margin-bottom: 1rem;
+            font-size: 2rem;
+            color: var(--accent-color);
         }
 
         .login-header h2 {
             font-size: 1.75rem;
-            font-weight: 600;
+            font-weight: 700;
             margin-bottom: 0.5rem;
+            color: var(--text-primary);
         }
 
         .login-header p {
-            opacity: 0.9;
+            color: var(--text-secondary);
             font-size: 0.95rem;
+            margin-bottom: 0;
         }
 
         .login-body {
-            padding: 2.5rem 2rem;
+            padding: 2rem 2rem;
         }
 
         .form-floating {
@@ -71,34 +99,44 @@
         }
 
         .form-floating > .form-control {
-            border: 2px solid #e0e0e0;
-            border-radius: 0.5rem;
+            border: 1.5px solid var(--border-color);
+            border-radius: 8px;
             padding: 1rem 0.75rem;
             font-size: 0.95rem;
-            transition: all 0.3s;
+            transition: all 0.2s ease;
+            background-color: white;
+            color: var(--text-primary);
         }
 
         .form-floating > .form-control:focus {
             border-color: var(--accent-color);
-            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.15);
+            box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.1);
         }
 
         .form-floating > label {
             padding: 1rem 0.75rem;
-            color: #666;
+            color: var(--text-secondary);
+            font-weight: 500;
         }
 
         .input-group-text {
-            background: transparent;
-            border: 2px solid #e0e0e0;
+            background: white;
+            border: 1.5px solid var(--border-color);
             border-left: none;
-            border-radius: 0 0.5rem 0.5rem 0;
+            border-radius: 0 8px 8px 0;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+            height: 58px;
+        }
+
+        .input-group:focus-within .input-group-text {
+            border-color: var(--accent-color);
         }
 
         .password-toggle {
             cursor: pointer;
-            color: #666;
-            transition: color 0.3s;
+            color: var(--text-muted);
+            transition: color 0.2s ease;
         }
 
         .password-toggle:hover {
@@ -109,9 +147,18 @@
             margin-bottom: 1.5rem;
         }
 
+        .form-check-input {
+            border: 1.5px solid var(--border-color);
+        }
+
         .form-check-input:checked {
             background-color: var(--accent-color);
             border-color: var(--accent-color);
+        }
+
+        .form-check-label {
+            color: var(--text-secondary);
+            font-weight: 500;
         }
 
         .btn-login {
@@ -119,17 +166,18 @@
             padding: 0.85rem;
             font-size: 1rem;
             font-weight: 600;
-            border-radius: 0.5rem;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+            border-radius: 8px;
+            background-color: var(--accent-color);
             border: none;
             color: white;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
         }
 
         .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(52, 152, 219, 0.3);
-            background: linear-gradient(135deg, #1a252f 0%, var(--hover-color) 100%);
+            background-color: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3);
         }
 
         .btn-login:active {
@@ -137,9 +185,10 @@
         }
 
         .alert {
-            border-radius: 0.5rem;
+            border-radius: 8px;
             border: none;
             margin-bottom: 1.5rem;
+            padding: 0.75rem 1rem;
         }
 
         .alert-dismissible .btn-close {
@@ -149,19 +198,27 @@
         .login-footer {
             text-align: center;
             padding: 1.5rem 2rem;
-            background: #f8f9fa;
-            border-top: 1px solid #e0e0e0;
+            background: var(--light-bg);
+            border-top: 1px solid var(--border-color);
         }
 
         .login-footer a {
             color: var(--accent-color);
             text-decoration: none;
             font-weight: 500;
+            transition: color 0.2s;
         }
 
         .login-footer a:hover {
-            color: var(--hover-color);
+            color: var(--accent-hover);
             text-decoration: underline;
+        }
+
+        .copyright {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
         }
 
         .spinner-border-sm {
@@ -172,11 +229,11 @@
 
         @media (max-width: 576px) {
             .login-header {
-                padding: 2rem 1.5rem;
+                padding: 2rem 1.5rem 1rem;
             }
 
             .login-body {
-                padding: 2rem 1.5rem;
+                padding: 1.5rem 1.5rem;
             }
 
             .login-header h2 {
@@ -189,7 +246,9 @@
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <i class="bi bi-buildings"></i>
+                <div class="logo-container">
+                    <i class="bi bi-building"></i>
+                </div>
                 <h2>RentManager</h2>
                 <p>Sign in to your account</p>
             </div>
@@ -198,7 +257,7 @@
                 {% if messages %}
                     {% for message in messages %}
                         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                            <i class="bi bi-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} me-2"></i>
+                            <i class="bi bi-{% if message.tags == 'error' %}exclamation-triangle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} me-2"></i>
                             {{ message }}
                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
@@ -223,11 +282,14 @@
                         </span>
                     </div>
                     
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="rememberMe" name="remember">
-                        <label class="form-check-label" for="rememberMe">
-                            Remember me
-                        </label>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="rememberMe" name="remember">
+                            <label class="form-check-label" for="rememberMe">
+                                Remember me
+                            </label>
+                        </div>
+                        <a href="#" class="text-decoration-none" style="color: var(--accent-color); font-weight: 500;">Forgot password?</a>
                     </div>
                     
                     <button type="submit" class="btn btn-login" id="loginBtn">
@@ -239,13 +301,13 @@
             
             <div class="login-footer">
                 <p class="mb-0">
-                    <a href="#">Forgot password?</a> | 
+                    Don't have an account? <a href="#">Sign up</a> | 
                     <a href="#">Contact Support</a>
                 </p>
             </div>
         </div>
         
-        <div class="text-center mt-4 text-white">
+        <div class="copyright">
             <small>&copy; 2024 RentManager. All rights reserved.</small>
         </div>
     </div>
