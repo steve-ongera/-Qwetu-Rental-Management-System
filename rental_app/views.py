@@ -1041,18 +1041,21 @@ def tenant_detail(request, pk):
 
     return render(request, 'tenants/tenant_detail.html', context)
 
+from django.contrib.auth.hashers import make_password
+from django.db import IntegrityError
+
 @login_required
 def tenant_create(request):
     """Create new tenant (user account)"""
     if request.method == 'POST':
         # Get form data
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
-        email = request.POST.get('email')
-        phone_number = request.POST.get('phone_number')
-        national_id = request.POST.get('national_id')
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        phone_number = request.POST.get('phone_number', '').strip()
+        national_id = request.POST.get('national_id', '').strip()
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
         
         # Validation
         if not all([first_name, last_name, phone_number, username, password]):
@@ -1075,19 +1078,36 @@ def tenant_create(request):
             return render(request, 'tenants/tenant_form.html', {'form_data': request.POST})
         
         try:
-            tenant = User.objects.create_user(
+            # Create tenant without password validation
+            tenant = User(
                 username=username,
-                password=password,
                 first_name=first_name,
                 last_name=last_name,
                 email=email,
                 phone_number=phone_number,
                 national_id=national_id if national_id else None,
                 user_type='tenant',
-                user_status='active'
+                user_status='active',
+                password=make_password(password)  # Hash password manually
             )
+            tenant.save()
+            
             messages.success(request, f'Tenant "{tenant.get_full_name()}" created successfully!')
             return redirect('tenant_detail', pk=tenant.pk)
+            
+        except IntegrityError as e:
+            # Catch database integrity errors (unique constraints)
+            error_msg = str(e)
+            if 'phone_number' in error_msg:
+                messages.error(request, 'Phone number already exists.')
+            elif 'national_id' in error_msg:
+                messages.error(request, 'National ID already exists.')
+            elif 'username' in error_msg:
+                messages.error(request, 'Username already exists.')
+            else:
+                messages.error(request, f'Database error: {error_msg}')
+            return render(request, 'tenants/tenant_form.html', {'form_data': request.POST})
+            
         except Exception as e:
             messages.error(request, f'Error creating tenant: {str(e)}')
             return render(request, 'tenants/tenant_form.html', {'form_data': request.POST})
