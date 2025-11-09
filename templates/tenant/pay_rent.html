@@ -169,7 +169,7 @@
                     
                     <div class="mb-3">
                         <label for="rentDueBank" class="form-label">Select Month to Pay <span class="text-danger">*</span></label>
-                        <select class="form-select" id="rentDueBank" name="rent_due">
+                        <select class="form-select" id="rentDueBank" name="rent_due_bank">
                             <option value="">-- Select Month --</option>
                             {% for due in unpaid_dues %}
                             <option value="{{ due.id }}">

@@ -2716,6 +2716,27 @@ from .models import Tenancy, RentDue, RentPayment
 
 # ============= M-PESA INTEGRATION =============
 
+# views.py
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.utils import timezone
+from django.db import transaction
+from django.conf import settings
+from decimal import Decimal
+import json
+import requests
+import base64
+from datetime import datetime
+
+from .models import Tenancy, RentDue, RentPayment
+
+# ============= M-PESA INTEGRATION =============
+
 def get_mpesa_access_token():
     """Get M-Pesa OAuth access token"""
     try:
@@ -3216,7 +3237,7 @@ def check_payment_status(request, payment_id):
 def handle_bank_transfer(request, active_tenancy):
     """Handle bank transfer payment recording"""
     transaction_ref = request.POST.get('transaction_ref', '').strip()
-    rent_due_id = request.POST.get('rent_due')
+    rent_due_id = request.POST.get('rent_due_bank')  # Changed from rent_due to rent_due_bank
     
     if not transaction_ref:
         messages.error(request, 'Please provide transaction reference.')
