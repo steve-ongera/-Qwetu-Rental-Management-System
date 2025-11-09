@@ -1,0 +1,244 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Deposits - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-piggy-bank me-2"></i>Security Deposits
+        </h1>
+        <p class="page-subtitle">Track tenant deposits and refunds</p>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">KES {{ total_deposits|floatformat:2 }}</h3>
+                        <small>Total Deposits Held</small>
+                    </div>
+                    <i class="bi bi-piggy-bank" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">KES {{ refunded_deposits|floatformat:2 }}</h3>
+                        <small>Total Refunded</small>
+                    </div>
+                    <i class="bi bi-arrow-left-circle" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ pending_refunds }}</h3>
+                        <small>Pending Refunds</small>
+                    </div>
+                    <i class="bi bi-clock-history" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                    <option value="terminated" {% if status_filter == 'terminated' %}selected{% endif %}>Terminated</option>
+                    <option value="switched" {% if status_filter == 'switched' %}selected{% endif %}>Switched</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Apartment</label>
+                <select name="apartment" class="form-select">
+                    <option value="">All Apartments</option>
+                    {% for apartment in apartments %}
+                    <option value="{{ apartment.pk }}" {% if apartment_filter == apartment.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ apartment.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" 
+                       placeholder="Tenant, room..." value="{{ search_query }}">
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-2"></i>Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Deposits Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Tenant</th>
+                        <th>Room</th>
+                        <th>Tenancy Period</th>
+                        <th>Deposit Paid</th>
+                        <th>Refund Status</th>
+                        <th>Refund Amount</th>
+                        <th>Tenancy Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tenancy in tenancies %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle bg-primary text-white me-2">
+                                    {{ tenancy.tenant.first_name.0 }}{{ tenancy.tenant.last_name.0 }}
+                                </div>
+                                <div>
+                                    <strong>{{ tenancy.tenant.get_full_name }}</strong>
+                                    <br><small class="text-muted">{{ tenancy.tenant.phone_number }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <strong>{{ tenancy.room.room_number }}</strong>
+                            <br><small class="text-muted">{{ tenancy.apartment.name }}</small>
+                        </td>
+                        <td>
+                            {{ tenancy.start_date|date:"M d, Y" }}
+                            <br>
+                            {% if tenancy.end_date %}
+                            to {{ tenancy.end_date|date:"M d, Y" }}
+                            {% else %}
+                            <small class="text-muted">Present</small>
+                            {% endif %}
+                        </td>
+                        <td><strong>KES {{ tenancy.deposit_paid|floatformat:2 }}</strong></td>
+                        <td>
+                            {% if tenancy.deposit_refunded %}
+                            <span class="badge bg-success">Refunded</span>
+                            {% elif tenancy.status == 'terminated' %}
+                            <span class="badge bg-warning">Pending Refund</span>
+                            {% else %}
+                            <span class="badge bg-info">Held</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tenancy.deposit_refunded %}
+                            <strong>KES {{ tenancy.deposit_refund_amount|floatformat:2 }}</strong>
+                            {% if tenancy.deposit_deduction_reason %}
+                            <br><small class="text-muted" title="{{ tenancy.deposit_deduction_reason }}">
+                                <i class="bi bi-info-circle"></i> Deduction applied
+                            </small>
+                            {% endif %}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tenancy.status == 'active' %}
+                            <span class="badge bg-success">Active</span>
+                            {% elif tenancy.status == 'terminated' %}
+                            <span class="badge bg-secondary">Terminated</span>
+                            {% elif tenancy.status == 'suspended' %}
+                            <span class="badge bg-warning">Suspended</span>
+                            {% else %}
+                            <span class="badge bg-info">Switched</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'deposit_detail' tenancy.pk %}" 
+                                   class="btn btn-outline-primary" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if tenancy.status == 'terminated' and not tenancy.deposit_refunded %}
+                                <a href="{% url 'deposit_refund' tenancy.pk %}" 
+                                   class="btn btn-outline-success" title="Process Refund">
+                                    <i class="bi bi-arrow-left-circle"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4">
+                            <i class="bi bi-piggy-bank" style="font-size: 3rem; color: #ccc;"></i>
+                            <h5 class="mt-3">No Deposits Found</h5>
+                            <p class="text-muted">Try adjusting your filters.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if tenancies.has_other_pages %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if tenancies.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ tenancies.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in tenancies.paginator.page_range %}
+        <li class="page-item {% if tenancies.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        
+        {% if tenancies.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ tenancies.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<style>
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+</style>
+{% endblock %}

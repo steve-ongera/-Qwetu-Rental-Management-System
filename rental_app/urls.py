@@ -48,4 +48,38 @@ urlpatterns = [
     path('tenancies/<int:pk>/', views.tenancy_detail, name='tenancy_detail'),
     path('tenancies/<int:pk>/edit/', views.tenancy_edit, name='tenancy_edit'),
     path('tenancies/<int:pk>/terminate/', views.tenancy_terminate, name='tenancy_terminate'),
+
+    # ==================== RENT PAYMENTS ====================
+    path('payments/rent/', views.rent_payments_list, name='rent_payments_list'),
+    path('payments/rent/pending/', views.rent_payments_pending, name='rent_payments_pending'),
+    path('payments/rent/create/', views.rent_payment_create, name='rent_payment_create'),
+    path('payments/rent/<str:mpesa_transaction_id>/', views.rent_payment_detail, name='rent_payment_detail'),
+    path('payments/rent/<int:pk>/edit/', views.rent_payment_edit, name='rent_payment_edit'),
+    path('payments/rent/<int:pk>/delete/', views.rent_payment_delete, name='rent_payment_delete'),
+    
+    # ==================== RENT DUES ====================
+    path('payments/dues/', views.rent_dues_list, name='rent_dues_list'),
+    path('payments/dues/create/', views.rent_due_create, name='rent_due_create'),
+    path('payments/dues/<int:pk>/', views.rent_due_detail, name='rent_due_detail'),
+    path('payments/dues/<int:pk>/edit/', views.rent_due_edit, name='rent_due_edit'),
+    path('payments/dues/<int:pk>/delete/', views.rent_due_delete, name='rent_due_delete'),
+    
+    # ==================== WATER BILLS ====================
+    path('payments/water/', views.water_bills_list, name='water_bills_list'),
+    path('payments/water/create/', views.water_bill_create, name='water_bill_create'),
+    path('payments/water/<int:pk>/', views.water_bill_detail, name='water_bill_detail'),
+    path('payments/water/<int:pk>/edit/', views.water_bill_edit, name='water_bill_edit'),
+    path('payments/water/<int:pk>/delete/', views.water_bill_delete, name='water_bill_delete'),
+    
+    # ==================== ELECTRICITY BILLS ====================
+    path('payments/electricity/', views.electricity_bills_list, name='electricity_bills_list'),
+    path('payments/electricity/create/', views.electricity_bill_create, name='electricity_bill_create'),
+    path('payments/electricity/<int:pk>/', views.electricity_bill_detail, name='electricity_bill_detail'),
+    path('payments/electricity/<int:pk>/edit/', views.electricity_bill_edit, name='electricity_bill_edit'),
+    path('payments/electricity/<int:pk>/delete/', views.electricity_bill_delete, name='electricity_bill_delete'),
+    
+    # ==================== DEPOSITS ====================
+    path('payments/deposits/', views.deposits_list, name='deposits_list'),
+    path('payments/deposits/<int:pk>/', views.deposit_detail, name='deposit_detail'),
+    path('payments/deposits/<int:pk>/refund/', views.deposit_refund, name='deposit_refund'),
 ]

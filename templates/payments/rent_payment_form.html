@@ -1,0 +1,182 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Record{% endif %} Payment - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <h1 class="page-title">
+        <i class="bi bi-cash-stack me-2"></i>{% if is_edit %}Edit Payment{% else %}Record New Payment{% endif %}
+    </h1>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'rent_payments_list' %}">Payments</a></li>
+            <li class="breadcrumb-item active">{% if is_edit %}Edit{% else %}New{% endif %}</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Payment Information</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% if not is_edit %}
+                    <div class="mb-3">
+                        <label class="form-label required">Tenancy</label>
+                        <select name="tenancy" class="form-select" required onchange="updateRentAmount(this)">
+                            <option value="">Select Tenant & Room</option>
+                            {% for tenancy in tenancies %}
+                            <option value="{{ tenancy.pk }}" 
+                                    data-rent="{{ tenancy.room.monthly_rent }}"
+                                    data-tenant="{{ tenancy.tenant.get_full_name }}"
+                                    data-room="{{ tenancy.room.room_number }}">
+                                {{ tenancy.tenant.get_full_name }} - {{ tenancy.room.room_number }} ({{ tenancy.apartment.name }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label class="form-label">Tenant</label>
+                        <input type="text" class="form-control" value="{{ payment.tenant.get_full_name }} - {{ payment.tenancy.room.room_number }}" readonly>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label required">Amount (KES)</label>
+                            <input type="number" name="amount" class="form-control" 
+                                   step="0.01" min="0" required
+                                   value="{% if is_edit %}{{ payment.amount }}{% endif %}"
+                                   id="paymentAmount">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label required">Payment Method</label>
+                            <select name="payment_method" class="form-select" required onchange="toggleMpesaFields(this)">
+                                <option value="mpesa" {% if is_edit and payment.payment_method == 'mpesa' %}selected{% endif %}>M-Pesa</option>
+                                <option value="cash" {% if is_edit and payment.payment_method == 'cash' %}selected{% endif %}>Cash</option>
+                                <option value="bank_transfer" {% if is_edit and payment.payment_method == 'bank_transfer' %}selected{% endif %}>Bank Transfer</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    {% if not is_edit %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label required">Payment For Month</label>
+                            <input type="month" name="payment_for_month" class="form-control" required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Months Covered</label>
+                            <input type="number" name="months_covered" class="form-control" 
+                                   value="1" min="1" max="12">
+                            <small class="text-muted">For advance payments</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if is_edit %}
+                    <div class="mb-3">
+                        <label class="form-label required">Status</label>
+                        <select name="status" class="form-select" required>
+                            <option value="pending" {% if payment.status == 'pending' %}selected{% endif %}>Pending</option>
+                            <option value="completed" {% if payment.status == 'completed' %}selected{% endif %}>Completed</option>
+                            <option value="failed" {% if payment.status == 'failed' %}selected{% endif %}>Failed</option>
+                            <option value="refunded" {% if payment.status == 'refunded' %}selected{% endif %}>Refunded</option>
+                        </select>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea name="notes" class="form-control" rows="3">{% if is_edit %}{{ payment.notes }}{% endif %}</textarea>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>{% if is_edit %}Update{% else %}Record{% endif %} Payment
+                        </button>
+                        <a href="{% url 'rent_payments_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Quick Info</h5>
+            </div>
+            <div class="card-body">
+                <div id="tenantInfo" class="d-none">
+                    <p class="mb-2"><strong>Tenant:</strong> <span id="tenantName">-</span></p>
+                    <p class="mb-2"><strong>Room:</strong> <span id="roomNumber">-</span></p>
+                    <p class="mb-2"><strong>Monthly Rent:</strong> KES <span id="monthlyRent">0.00</span></p>
+                </div>
+                <div id="noSelection">
+                    <p class="text-muted">Select a tenancy to see details</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Payment Tips</h5>
+            </div>
+            <div class="card-body">
+                <ul class="small mb-0">
+                    <li>Ensure the amount is correct before recording</li>
+                    <li>M-Pesa payments are auto-verified</li>
+                    <li>Cash payments are immediately marked as completed</li>
+                    <li>You can record advance payments for multiple months</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.required:after {
+    content: " *";
+    color: red;
+}
+</style>
+
+<script>
+function updateRentAmount(select) {
+    const option = select.options[select.selectedIndex];
+    if (option.value) {
+        const rent = option.dataset.rent;
+        const tenant = option.dataset.tenant;
+        const room = option.dataset.room;
+        
+        document.getElementById('paymentAmount').value = rent;
+        document.getElementById('tenantName').textContent = tenant;
+        document.getElementById('roomNumber').textContent = room;
+        document.getElementById('monthlyRent').textContent = parseFloat(rent).toFixed(2);
+        document.getElementById('tenantInfo').classList.remove('d-none');
+        document.getElementById('noSelection').classList.add('d-none');
+    } else {
+        document.getElementById('tenantInfo').classList.add('d-none');
+        document.getElementById('noSelection').classList.remove('d-none');
+    }
+}
+
+function toggleMpesaFields(select) {
+    // Can be extended to show/hide M-Pesa specific fields
+    if (select.value === 'mpesa') {
+        // Show M-Pesa fields if needed
+    }
+}
+</script>
+{% endblock %}

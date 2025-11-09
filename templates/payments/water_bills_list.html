@@ -1,0 +1,245 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Water Bills - RentManager{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-droplet me-2"></i>Water Bills
+        </h1>
+        <p class="page-subtitle">Manage monthly water billing</p>
+    </div>
+    <a href="{% url 'water_bill_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>Generate Bill
+    </a>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ total_bills }}</h3>
+                        <small>Total Bills</small>
+                    </div>
+                    <i class="bi bi-receipt" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ pending_bills }}</h3>
+                        <small>Pending</small>
+                    </div>
+                    <i class="bi bi-clock-history" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ overdue_bills }}</h3>
+                        <small>Overdue</small>
+                    </div>
+                    <i class="bi bi-exclamation-triangle" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">KES {{ total_amount|floatformat:2 }}</h3>
+                        <small>Total Collected</small>
+                    </div>
+                    <i class="bi bi-currency-dollar" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>Paid</option>
+                    <option value="overdue" {% if status_filter == 'overdue' %}selected{% endif %}>Overdue</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Apartment</label>
+                <select name="apartment" class="form-select">
+                    <option value="">All Apartments</option>
+                    {% for apartment in apartments %}
+                    <option value="{{ apartment.pk }}" {% if apartment_filter == apartment.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ apartment.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" 
+                       placeholder="Tenant, room..." value="{{ search_query }}">
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-funnel me-2"></i>Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bills Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Bill Month</th>
+                        <th>Tenant</th>
+                        <th>Room</th>
+                        <th>Previous</th>
+                        <th>Current</th>
+                        <th>Units</th>
+                        <th>Rate</th>
+                        <th>Total</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bill in bills %}
+                    <tr>
+                        <td>{{ bill.bill_month|date:"F Y" }}</td>
+                        <td>
+                            <strong>{{ bill.tenancy.tenant.get_full_name }}</strong>
+                            <br><small class="text-muted">{{ bill.tenancy.tenant.phone_number }}</small>
+                        </td>
+                        <td>
+                            <strong>{{ bill.tenancy.room.room_number }}</strong>
+                            <br><small class="text-muted">{{ bill.tenancy.apartment.name }}</small>
+                        </td>
+                        <td>{{ bill.previous_reading|floatformat:2 }}</td>
+                        <td>{{ bill.current_reading|floatformat:2 }}</td>
+                        <td><strong>{{ bill.units_consumed|floatformat:2 }}</strong></td>
+                        <td>{{ bill.rate_per_unit|floatformat:2 }}</td>
+                        <td><strong>KES {{ bill.total_amount|floatformat:2 }}</strong></td>
+                        <td>{{ bill.due_date|date:"M d, Y" }}</td>
+                        <td>
+                            {% if bill.status == 'paid' %}
+                            <span class="badge bg-success">Paid</span>
+                            {% elif bill.status == 'pending' %}
+                            <span class="badge bg-warning">Pending</span>
+                            {% else %}
+                            <span class="badge bg-danger">Overdue</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'water_bill_detail' bill.pk %}" 
+                                   class="btn btn-outline-primary" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'water_bill_edit' bill.pk %}" 
+                                   class="btn btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-outline-danger" title="Delete" 
+                                        onclick="deleteBill({{ bill.pk }}, '{{ bill.tenancy.tenant.get_full_name }}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="11" class="text-center py-4">
+                            <i class="bi bi-droplet" style="font-size: 3rem; color: #ccc;"></i>
+                            <h5 class="mt-3">No Water Bills Found</h5>
+                            <p class="text-muted">Try adjusting your filters or generate a new bill.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if bills.has_other_pages %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if bills.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ bills.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for num in bills.paginator.page_range %}
+        <li class="page-item {% if bills.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        
+        {% if bills.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ bills.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if apartment_filter %}&apartment={{ apartment_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<script>
+function deleteBill(pk, tenant) {
+    if (confirm(`Are you sure you want to delete water bill for ${tenant}?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/payments/water/${pk}/delete/`;
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            form.appendChild(csrfToken.cloneNode());
+        } else {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'csrfmiddlewaretoken';
+            input.value = '{{ csrf_token }}';
+            form.appendChild(input);
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

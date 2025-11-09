@@ -1460,3 +1460,1008 @@ def tenancy_terminate(request, pk):
     }
     
     return render(request, 'tenants/tenancy_terminate.html', context)
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db.models import Q, Sum, Count, F
+from django.core.paginator import Paginator
+from django.utils import timezone
+from decimal import Decimal
+from datetime import datetime, timedelta
+from .models import (
+    RentPayment, RentDue, WaterBill, ElectricityBill, 
+    Tenancy, Apartment, User, Notification
+)
+
+
+# ==================== RENT PAYMENTS VIEWS ====================
+
+@login_required
+def rent_payments_list(self, request):
+    """List all rent payments"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    # Get filters
+    status_filter = request.GET.get('status', '')
+    apartment_filter = request.GET.get('apartment', '')
+    search_query = request.GET.get('search', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    
+    # Base query
+    payments = RentPayment.objects.filter(is_deleted=False).select_related(
+        'tenant', 'tenancy', 'apartment', 'tenancy__room'
+    )
+    
+    # Apply filters
+    if status_filter:
+        payments = payments.filter(status=status_filter)
+    
+    if apartment_filter:
+        payments = payments.filter(apartment_id=apartment_filter)
+    
+    if search_query:
+        payments = payments.filter(
+            Q(tenant__first_name__icontains=search_query) |
+            Q(tenant__last_name__icontains=search_query) |
+            Q(mpesa_transaction_id__icontains=search_query) |
+            Q(tenancy__room__room_number__icontains=search_query)
+        )
+    
+    if date_from:
+        payments = payments.filter(payment_date__gte=date_from)
+    
+    if date_to:
+        payments = payments.filter(payment_date__lte=date_to)
+    
+    # Statistics
+    total_payments = payments.count()
+    completed_payments = payments.filter(status='completed').count()
+    pending_payments = payments.filter(status='pending').count()
+    total_amount = payments.filter(status='completed').aggregate(
+        total=Sum('amount')
+    )['total'] or 0
+    
+    # Pagination
+    paginator = Paginator(payments.order_by('-payment_date'), 20)
+    page_number = request.GET.get('page')
+    payments_page = paginator.get_page(page_number)
+    
+    # Get apartments for filter
+    apartments = Apartment.objects.filter(owner=request.user)
+    
+    context = {
+        'payments': payments_page,
+        'total_payments': total_payments,
+        'completed_payments': completed_payments,
+        'pending_payments': pending_payments,
+        'total_amount': total_amount,
+        'apartments': apartments,
+        'status_filter': status_filter,
+        'apartment_filter': apartment_filter,
+        'search_query': search_query,
+        'date_from': date_from,
+        'date_to': date_to,
+    }
+    
+    return render(request, 'payments/rent_payments_list.html', context)
+
+
+@login_required
+def rent_payments_pending(request):
+    """List pending rent payments"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    payments = RentPayment.objects.filter(
+        is_deleted=False,
+        status='pending'
+    ).select_related('tenant', 'tenancy', 'apartment', 'tenancy__room')
+    
+    # Pagination
+    paginator = Paginator(payments.order_by('-payment_date'), 20)
+    page_number = request.GET.get('page')
+    payments_page = paginator.get_page(page_number)
+    
+    context = {
+        'payments': payments_page,
+        'page_title': 'Pending Payments',
+    }
+    
+    return render(request, 'payments/rent_payments_pending.html', context)
+
+
+@login_required
+def rent_payment_detail(request, mpesa_transaction_id):
+    """View rent payment details using M-Pesa transaction ID"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    payment = get_object_or_404(
+        RentPayment,
+        mpesa_transaction_id=mpesa_transaction_id,
+        is_deleted=False
+    )
+    
+    context = {
+        'payment': payment,
+    }
+    
+    return render(request, 'payments/rent_payment_detail.html', context)
+
+
+@login_required
+def rent_payment_create(request):
+    """Create new rent payment (manual entry)"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        tenancy_id = request.POST.get('tenancy')
+        amount = request.POST.get('amount')
+        payment_method = request.POST.get('payment_method')
+        payment_for_month = request.POST.get('payment_for_month')
+        months_covered = request.POST.get('months_covered', 1)
+        notes = request.POST.get('notes', '')
+        
+        try:
+            tenancy = Tenancy.objects.get(pk=tenancy_id, status='active')
+            
+            payment = RentPayment.objects.create(
+                tenancy=tenancy,
+                tenant=tenancy.tenant,
+                apartment=tenancy.apartment,
+                amount=Decimal(amount),
+                payment_method=payment_method,
+                payment_for_month=payment_for_month,
+                months_covered=int(months_covered),
+                status='completed' if payment_method != 'mpesa' else 'pending',
+                notes=notes
+            )
+            
+            # Update rent due
+            update_rent_due_after_payment(payment)
+            
+            # Create notification
+            Notification.objects.create(
+                user=tenancy.tenant,
+                notification_type='payment_received',
+                title='Payment Received',
+                message=f'Payment of KES {amount} received for {payment_for_month}.'
+            )
+            
+            messages.success(request, 'Payment recorded successfully.')
+            return redirect('rent_payment_detail', mpesa_transaction_id=payment.mpesa_transaction_id or payment.pk)
+        
+        except Exception as e:
+            messages.error(request, f'Error creating payment: {str(e)}')
+    
+    # Get active tenancies
+    tenancies = Tenancy.objects.filter(
+        status='active',
+        is_deleted=False
+    ).select_related('tenant', 'room', 'apartment')
+    
+    context = {
+        'tenancies': tenancies,
+    }
+    
+    return render(request, 'payments/rent_payment_form.html', context)
+
+
+@login_required
+def rent_payment_edit(request, pk):
+    """Edit rent payment"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    payment = get_object_or_404(RentPayment, pk=pk, is_deleted=False)
+    
+    if request.method == 'POST':
+        amount = request.POST.get('amount')
+        payment_method = request.POST.get('payment_method')
+        status = request.POST.get('status')
+        notes = request.POST.get('notes', '')
+        
+        try:
+            payment.amount = Decimal(amount)
+            payment.payment_method = payment_method
+            payment.status = status
+            payment.notes = notes
+            payment.save()
+            
+            # Update rent due if status changed to completed
+            if status == 'completed':
+                update_rent_due_after_payment(payment)
+            
+            messages.success(request, 'Payment updated successfully.')
+            return redirect('rent_payment_detail', mpesa_transaction_id=payment.mpesa_transaction_id or payment.pk)
+        
+        except Exception as e:
+            messages.error(request, f'Error updating payment: {str(e)}')
+    
+    context = {
+        'payment': payment,
+        'is_edit': True,
+    }
+    
+    return render(request, 'payments/rent_payment_form.html', context)
+
+
+@login_required
+def rent_payment_delete(request, pk):
+    """Soft delete rent payment"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        payment = get_object_or_404(RentPayment, pk=pk, is_deleted=False)
+        payment.is_deleted = True
+        payment.deleted_at = timezone.now()
+        payment.save()
+        
+        messages.success(request, 'Payment deleted successfully.')
+        return redirect('rent_payments_list')
+    
+    return redirect('rent_payments_list')
+
+
+# ==================== RENT DUES VIEWS ====================
+
+@login_required
+def rent_dues_list(request):
+    """List all rent dues"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    # Get filters
+    status_filter = request.GET.get('status', '')
+    apartment_filter = request.GET.get('apartment', '')
+    search_query = request.GET.get('search', '')
+    
+    # Base query
+    dues = RentDue.objects.filter(is_deleted=False).select_related(
+        'tenant', 'tenancy', 'tenancy__room', 'tenancy__apartment'
+    )
+    
+    # Apply filters
+    if status_filter:
+        dues = dues.filter(status=status_filter)
+    
+    if apartment_filter:
+        dues = dues.filter(tenancy__apartment_id=apartment_filter)
+    
+    if search_query:
+        dues = dues.filter(
+            Q(tenant__first_name__icontains=search_query) |
+            Q(tenant__last_name__icontains=search_query) |
+            Q(tenancy__room__room_number__icontains=search_query)
+        )
+    
+    # Statistics
+    total_dues = dues.count()
+    overdue_count = dues.filter(status='overdue').count()
+    unpaid_count = dues.filter(status='unpaid').count()
+    total_balance = dues.aggregate(total=Sum('balance'))['total'] or 0
+    
+    # Pagination
+    paginator = Paginator(dues.order_by('-due_date'), 20)
+    page_number = request.GET.get('page')
+    dues_page = paginator.get_page(page_number)
+    
+    # Get apartments for filter
+    apartments = Apartment.objects.filter(owner=request.user)
+    
+    context = {
+        'dues': dues_page,
+        'total_dues': total_dues,
+        'overdue_count': overdue_count,
+        'unpaid_count': unpaid_count,
+        'total_balance': total_balance,
+        'apartments': apartments,
+        'status_filter': status_filter,
+        'apartment_filter': apartment_filter,
+        'search_query': search_query,
+    }
+    
+    return render(request, 'payments/rent_dues_list.html', context)
+
+
+@login_required
+def rent_due_detail(request, pk):
+    """View rent due details"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    due = get_object_or_404(RentDue, pk=pk, is_deleted=False)
+    
+    # Get related payments
+    related_payments = RentPayment.objects.filter(
+        tenancy=due.tenancy,
+        payment_for_month=due.month_for,
+        status='completed',
+        is_deleted=False
+    )
+    
+    context = {
+        'due': due,
+        'related_payments': related_payments,
+    }
+    
+    return render(request, 'payments/rent_due_detail.html', context)
+
+
+@login_required
+def rent_due_create(request):
+    """Create new rent due"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        tenancy_id = request.POST.get('tenancy')
+        month_for = request.POST.get('month_for')
+        amount_due = request.POST.get('amount_due')
+        
+        try:
+            tenancy = Tenancy.objects.get(pk=tenancy_id, status='active')
+            
+            # Check if due already exists
+            if RentDue.objects.filter(tenancy=tenancy, month_for=month_for).exists():
+                messages.error(request, 'Rent due for this month already exists.')
+                return redirect('rent_due_create')
+            
+            # Calculate due date (3rd of the month)
+            month_date = datetime.strptime(month_for, '%Y-%m-%d')
+            due_date = month_date.replace(day=3)
+            
+            due = RentDue.objects.create(
+                tenancy=tenancy,
+                tenant=tenancy.tenant,
+                due_date=due_date,
+                month_for=month_for,
+                amount_due=Decimal(amount_due),
+                balance=Decimal(amount_due),
+                status='unpaid'
+            )
+            
+            # Create notification
+            Notification.objects.create(
+                user=tenancy.tenant,
+                notification_type='rent_due',
+                title='Rent Due',
+                message=f'Rent of KES {amount_due} is due on {due_date.strftime("%B %d, %Y")}.'
+            )
+            
+            messages.success(request, 'Rent due created successfully.')
+            return redirect('rent_due_detail', pk=due.pk)
+        
+        except Exception as e:
+            messages.error(request, f'Error creating rent due: {str(e)}')
+    
+    # Get active tenancies
+    tenancies = Tenancy.objects.filter(
+        status='active',
+        is_deleted=False
+    ).select_related('tenant', 'room', 'apartment')
+    
+    context = {
+        'tenancies': tenancies,
+    }
+    
+    return render(request, 'payments/rent_due_form.html', context)
+
+
+@login_required
+def rent_due_edit(request, pk):
+    """Edit rent due"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    due = get_object_or_404(RentDue, pk=pk, is_deleted=False)
+    
+    if request.method == 'POST':
+        amount_due = request.POST.get('amount_due')
+        amount_paid = request.POST.get('amount_paid')
+        status = request.POST.get('status')
+        
+        try:
+            due.amount_due = Decimal(amount_due)
+            due.amount_paid = Decimal(amount_paid)
+            due.balance = Decimal(amount_due) - Decimal(amount_paid)
+            due.status = status
+            due.save()
+            
+            messages.success(request, 'Rent due updated successfully.')
+            return redirect('rent_due_detail', pk=due.pk)
+        
+        except Exception as e:
+            messages.error(request, f'Error updating rent due: {str(e)}')
+    
+    context = {
+        'due': due,
+        'is_edit': True,
+    }
+    
+    return render(request, 'payments/rent_due_form.html', context)
+
+
+@login_required
+def rent_due_delete(request, pk):
+    """Soft delete rent due"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        due = get_object_or_404(RentDue, pk=pk, is_deleted=False)
+        due.is_deleted = True
+        due.deleted_at = timezone.now()
+        due.save()
+        
+        messages.success(request, 'Rent due deleted successfully.')
+        return redirect('rent_dues_list')
+    
+    return redirect('rent_dues_list')
+
+
+# ==================== WATER BILLS VIEWS ====================
+
+@login_required
+def water_bills_list(request):
+    """List all water bills"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    # Get filters
+    status_filter = request.GET.get('status', '')
+    apartment_filter = request.GET.get('apartment', '')
+    search_query = request.GET.get('search', '')
+    
+    # Base query
+    bills = WaterBill.objects.all().select_related(
+        'tenancy', 'tenancy__tenant', 'tenancy__room', 'tenancy__apartment'
+    )
+    
+    # Apply filters
+    if status_filter:
+        bills = bills.filter(status=status_filter)
+    
+    if apartment_filter:
+        bills = bills.filter(tenancy__apartment_id=apartment_filter)
+    
+    if search_query:
+        bills = bills.filter(
+            Q(tenancy__tenant__first_name__icontains=search_query) |
+            Q(tenancy__tenant__last_name__icontains=search_query) |
+            Q(tenancy__room__room_number__icontains=search_query)
+        )
+    
+    # Statistics
+    total_bills = bills.count()
+    pending_bills = bills.filter(status='pending').count()
+    overdue_bills = bills.filter(status='overdue').count()
+    total_amount = bills.filter(status='paid').aggregate(
+        total=Sum('total_amount')
+    )['total'] or 0
+    
+    # Pagination
+    paginator = Paginator(bills.order_by('-bill_month'), 20)
+    page_number = request.GET.get('page')
+    bills_page = paginator.get_page(page_number)
+    
+    # Get apartments for filter
+    apartments = Apartment.objects.filter(owner=request.user)
+    
+    context = {
+        'bills': bills_page,
+        'total_bills': total_bills,
+        'pending_bills': pending_bills,
+        'overdue_bills': overdue_bills,
+        'total_amount': total_amount,
+        'apartments': apartments,
+        'status_filter': status_filter,
+        'apartment_filter': apartment_filter,
+        'search_query': search_query,
+    }
+    
+    return render(request, 'payments/water_bills_list.html', context)
+
+
+@login_required
+def water_bill_detail(request, pk):
+    """View water bill details"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    bill = get_object_or_404(WaterBill, pk=pk)
+    
+    context = {
+        'bill': bill,
+    }
+    
+    return render(request, 'payments/water_bill_detail.html', context)
+
+
+@login_required
+def water_bill_create(request):
+    """Create new water bill"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        tenancy_id = request.POST.get('tenancy')
+        bill_month = request.POST.get('bill_month')
+        previous_reading = request.POST.get('previous_reading')
+        current_reading = request.POST.get('current_reading')
+        rate_per_unit = request.POST.get('rate_per_unit')
+        
+        try:
+            tenancy = Tenancy.objects.get(pk=tenancy_id, status='active')
+            
+            # Calculate units and total
+            prev_reading = Decimal(previous_reading)
+            curr_reading = Decimal(current_reading)
+            rate = Decimal(rate_per_unit)
+            units = curr_reading - prev_reading
+            total = units * rate
+            
+            # Calculate due date (usually 7 days from bill creation)
+            due_date = timezone.now().date() + timedelta(days=7)
+            
+            bill = WaterBill.objects.create(
+                tenancy=tenancy,
+                bill_month=bill_month,
+                previous_reading=prev_reading,
+                current_reading=curr_reading,
+                units_consumed=units,
+                rate_per_unit=rate,
+                total_amount=total,
+                due_date=due_date,
+                status='pending'
+            )
+            
+            # Create notification
+            Notification.objects.create(
+                user=tenancy.tenant,
+                notification_type='water_bill',
+                title='Water Bill Generated',
+                message=f'Water bill of KES {total} for {bill_month} is due on {due_date}.'
+            )
+            
+            messages.success(request, 'Water bill created successfully.')
+            return redirect('water_bill_detail', pk=bill.pk)
+        
+        except Exception as e:
+            messages.error(request, f'Error creating water bill: {str(e)}')
+    
+    # Get active tenancies
+    tenancies = Tenancy.objects.filter(
+        status='active',
+        is_deleted=False
+    ).select_related('tenant', 'room', 'apartment')
+    
+    context = {
+        'tenancies': tenancies,
+    }
+    
+    return render(request, 'payments/water_bill_form.html', context)
+
+
+@login_required
+def water_bill_edit(request, pk):
+    """Edit water bill"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    bill = get_object_or_404(WaterBill, pk=pk)
+    
+    if request.method == 'POST':
+        previous_reading = request.POST.get('previous_reading')
+        current_reading = request.POST.get('current_reading')
+        rate_per_unit = request.POST.get('rate_per_unit')
+        status = request.POST.get('status')
+        
+        try:
+            prev_reading = Decimal(previous_reading)
+            curr_reading = Decimal(current_reading)
+            rate = Decimal(rate_per_unit)
+            units = curr_reading - prev_reading
+            total = units * rate
+            
+            bill.previous_reading = prev_reading
+            bill.current_reading = curr_reading
+            bill.units_consumed = units
+            bill.rate_per_unit = rate
+            bill.total_amount = total
+            bill.status = status
+            
+            if status == 'paid' and not bill.payment_date:
+                bill.payment_date = timezone.now()
+            
+            bill.save()
+            
+            messages.success(request, 'Water bill updated successfully.')
+            return redirect('water_bill_detail', pk=bill.pk)
+        
+        except Exception as e:
+            messages.error(request, f'Error updating water bill: {str(e)}')
+    
+    context = {
+        'bill': bill,
+        'is_edit': True,
+    }
+    
+    return render(request, 'payments/water_bill_form.html', context)
+
+
+@login_required
+def water_bill_delete(request, pk):
+    """Delete water bill"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        bill = get_object_or_404(WaterBill, pk=pk)
+        bill.delete()
+        
+        messages.success(request, 'Water bill deleted successfully.')
+        return redirect('water_bills_list')
+    
+    return redirect('water_bills_list')
+
+
+# ==================== ELECTRICITY BILLS VIEWS ====================
+
+@login_required
+def electricity_bills_list(request):
+    """List all electricity bills"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    # Get filters
+    status_filter = request.GET.get('status', '')
+    apartment_filter = request.GET.get('apartment', '')
+    search_query = request.GET.get('search', '')
+    
+    # Base query
+    bills = ElectricityBill.objects.all().select_related(
+        'tenancy', 'tenancy__tenant', 'tenancy__room', 'tenancy__apartment'
+    )
+    
+    # Apply filters
+    if status_filter:
+        bills = bills.filter(status=status_filter)
+    
+    if apartment_filter:
+        bills = bills.filter(tenancy__apartment_id=apartment_filter)
+    
+    if search_query:
+        bills = bills.filter(
+            Q(tenancy__tenant__first_name__icontains=search_query) |
+            Q(tenancy__tenant__last_name__icontains=search_query) |
+            Q(token_number__icontains=search_query) |
+            Q(tenancy__room__room_number__icontains=search_query)
+        )
+    
+    # Statistics
+    total_bills = bills.count()
+    paid_bills = bills.filter(status='paid').count()
+    total_units = bills.filter(status='paid').aggregate(
+        total=Sum('units_purchased')
+    )['total'] or 0
+    total_amount = bills.filter(status='paid').aggregate(
+        total=Sum('amount')
+    )['total'] or 0
+    
+    # Pagination
+    paginator = Paginator(bills.order_by('-bill_month'), 20)
+    page_number = request.GET.get('page')
+    bills_page = paginator.get_page(page_number)
+    
+    # Get apartments for filter
+    apartments = Apartment.objects.filter(owner=request.user)
+    
+    context = {
+        'bills': bills_page,
+        'total_bills': total_bills,
+        'paid_bills': paid_bills,
+        'total_units': total_units,
+        'total_amount': total_amount,
+        'apartments': apartments,
+        'status_filter': status_filter,
+        'apartment_filter': apartment_filter,
+        'search_query': search_query,
+    }
+    
+    return render(request, 'payments/electricity_bills_list.html', context)
+
+
+@login_required
+def electricity_bill_detail(request, pk):
+    """View electricity bill details"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    bill = get_object_or_404(ElectricityBill, pk=pk)
+    
+    context = {
+        'bill': bill,
+    }
+    
+    return render(request, 'payments/electricity_bill_detail.html', context)
+
+
+@login_required
+def electricity_bill_create(request):
+    """Create new electricity bill"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        tenancy_id = request.POST.get('tenancy')
+        bill_month = request.POST.get('bill_month')
+        token_number = request.POST.get('token_number')
+        units_purchased = request.POST.get('units_purchased')
+        amount = request.POST.get('amount')
+        
+        try:
+            tenancy = Tenancy.objects.get(pk=tenancy_id, status='active')
+            
+            bill = ElectricityBill.objects.create(
+                tenancy=tenancy,
+                bill_month=bill_month,
+                token_number=token_number,
+                units_purchased=Decimal(units_purchased),
+                amount=Decimal(amount),
+                status='paid'
+            )
+            
+            messages.success(request, 'Electricity bill created successfully.')
+            return redirect('electricity_bill_detail', pk=bill.pk)
+        
+        except Exception as e:
+            messages.error(request, f'Error creating electricity bill: {str(e)}')
+    
+    # Get active tenancies
+    tenancies = Tenancy.objects.filter(
+        status='active',
+        is_deleted=False
+    ).select_related('tenant', 'room', 'apartment')
+    
+    context = {
+        'tenancies': tenancies,
+    }
+    
+    return render(request, 'payments/electricity_bill_form.html', context)
+
+
+@login_required
+def electricity_bill_edit(request, pk):
+    """Edit electricity bill"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    bill = get_object_or_404(ElectricityBill, pk=pk)
+    
+    if request.method == 'POST':
+        token_number = request.POST.get('token_number')
+        units_purchased = request.POST.get('units_purchased')
+        amount = request.POST.get('amount')
+        status = request.POST.get('status')
+        
+        try:
+            bill.token_number = token_number
+            bill.units_purchased = Decimal(units_purchased)
+            bill.amount = Decimal(amount)
+            bill.status = status
+            bill.save()
+            
+            messages.success(request, 'Electricity bill updated successfully.')
+            return redirect('electricity_bill_detail', pk=bill.pk)
+        
+        except Exception as e:
+            messages.error(request, f'Error updating electricity bill: {str(e)}')
+    
+    context = {
+        'bill': bill,
+        'is_edit': True,
+    }
+    
+    return render(request, 'payments/electricity_bill_form.html', context)
+
+
+@login_required
+def electricity_bill_delete(request, pk):
+    """Delete electricity bill"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        bill = get_object_or_404(ElectricityBill, pk=pk)
+        bill.delete()
+        
+        messages.success(request, 'Electricity bill deleted successfully.')
+        return redirect('electricity_bills_list')
+    
+    return redirect('electricity_bills_list')
+
+
+# ==================== DEPOSITS VIEWS ====================
+
+@login_required
+def deposits_list(request):
+    """List all deposits"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    # Get filters
+    status_filter = request.GET.get('status', '')
+    apartment_filter = request.GET.get('apartment', '')
+    search_query = request.GET.get('search', '')
+    
+    # Base query
+    tenancies = Tenancy.objects.filter(is_deleted=False).select_related(
+        'tenant', 'room', 'apartment'
+    )
+    
+    # Apply filters
+    if status_filter:
+        tenancies = tenancies.filter(status=status_filter)
+    
+    if apartment_filter:
+        tenancies = tenancies.filter(apartment_id=apartment_filter)
+    
+    if search_query:
+        tenancies = tenancies.filter(
+            Q(tenant__first_name__icontains=search_query) |
+            Q(tenant__last_name__icontains=search_query) |
+            Q(room__room_number__icontains=search_query)
+        )
+    
+    # Statistics
+    total_deposits = tenancies.aggregate(total=Sum('deposit_paid'))['total'] or 0
+    refunded_deposits = tenancies.filter(
+        deposit_refunded=True
+    ).aggregate(total=Sum('deposit_refund_amount'))['total'] or 0
+    pending_refunds = tenancies.filter(
+        status='terminated',
+        deposit_refunded=False
+    ).count()
+    
+    # Pagination
+    paginator = Paginator(tenancies.order_by('-created_at'), 20)
+    page_number = request.GET.get('page')
+    tenancies_page = paginator.get_page(page_number)
+    
+    # Get apartments for filter
+    apartments = Apartment.objects.filter(owner=request.user)
+    
+    context = {
+        'tenancies': tenancies_page,
+        'total_deposits': total_deposits,
+        'refunded_deposits': refunded_deposits,
+        'pending_refunds': pending_refunds,
+        'apartments': apartments,
+        'status_filter': status_filter,
+        'apartment_filter': apartment_filter,
+        'search_query': search_query,
+    }
+    
+    return render(request, 'payments/deposits_list.html', context)
+
+
+@login_required
+def deposit_detail(request, pk):
+    """View deposit details"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    tenancy = get_object_or_404(Tenancy, pk=pk, is_deleted=False)
+    
+    context = {
+        'tenancy': tenancy,
+    }
+    
+    return render(request, 'payments/deposit_detail.html', context)
+
+
+@login_required
+def deposit_refund(request, pk):
+    """Process deposit refund"""
+    if request.user.user_type != 'admin':
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard')
+    
+    tenancy = get_object_or_404(Tenancy, pk=pk, is_deleted=False)
+    
+    if request.method == 'POST':
+        refund_amount = request.POST.get('refund_amount')
+        deduction_reason = request.POST.get('deduction_reason', '')
+        
+        try:
+            tenancy.deposit_refunded = True
+            tenancy.deposit_refund_amount = Decimal(refund_amount)
+            tenancy.deposit_deduction_reason = deduction_reason
+            tenancy.save()
+            
+            # Create notification
+            Notification.objects.create(
+                user=tenancy.tenant,
+                notification_type='general',
+                title='Deposit Refund Processed',
+                message=f'Your deposit refund of KES {refund_amount} has been processed.'
+            )
+            
+            messages.success(request, 'Deposit refund processed successfully.')
+            return redirect('deposit_detail', pk=tenancy.pk)
+        
+        except Exception as e:
+            messages.error(request, f'Error processing refund: {str(e)}')
+    
+    context = {
+        'tenancy': tenancy,
+    }
+    
+    return render(request, 'payments/deposit_refund_form.html', context)
+
+
+# ==================== HELPER FUNCTIONS ====================
+
+def update_rent_due_after_payment(payment):
+    """Update rent due status after payment"""
+    try:
+        # Get or create rent due for the payment month
+        rent_due, created = RentDue.objects.get_or_create(
+            tenancy=payment.tenancy,
+            month_for=payment.payment_for_month,
+            defaults={
+                'tenant': payment.tenant,
+                'due_date': datetime.strptime(str(payment.payment_for_month), '%Y-%m-%d').replace(day=3),
+                'amount_due': payment.tenancy.room.monthly_rent,
+                'amount_paid': 0,
+                'balance': payment.tenancy.room.monthly_rent,
+                'status': 'unpaid'
+            }
+        )
+        
+        # Update payment amount
+        rent_due.amount_paid += payment.amount
+        rent_due.balance = rent_due.amount_due - rent_due.amount_paid
+        
+        # Update status
+        if rent_due.balance <= 0:
+            rent_due.status = 'paid'
+        elif rent_due.amount_paid > 0:
+            rent_due.status = 'partially_paid'
+        else:
+            rent_due.status = 'unpaid'
+        
+        rent_due.save()
+        
+    except Exception as e:
+        print(f"Error updating rent due: {str(e)}")
